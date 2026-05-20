@@ -1,3 +1,16 @@
+# EmbedForge project description.
+#
+# Organization rule:
+# - project/chip/sdk/build/flash describe toolchain and download metadata.
+# - resources.mcu describes clocks and core timing.
+# - resources.peripherals describes MCU peripherals and their pins/DMA.
+# - resources.board_devices describes board-level devices built on peripherals.
+# - runtime describes software policy such as logging, polling, and debug UI.
+#
+# Keep hardware facts in resources and application behavior in runtime. Do not
+# duplicate raw pin mappings in App code; BoardDevices should hide pin polarity,
+# bus names, chip-selects, and controller details from App.
+
 project:
   name: mspm0g3507
   type: ti-mspm0
