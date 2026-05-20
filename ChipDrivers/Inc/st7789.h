@@ -26,12 +26,19 @@ typedef struct {
     void *ctx;
 } st7789_bus_t;
 
+typedef enum {
+    ST7789_PANEL_ST7789 = 0,
+    ST7789_PANEL_TFT180 = 1,
+} st7789_panel_t;
+
 typedef struct {
     st7789_bus_t bus;
     uint16_t width;
     uint16_t height;
     uint16_t x_offset;
     uint16_t y_offset;
+    uint8_t madctl;
+    st7789_panel_t panel;
 } st7789_t;
 
 typedef struct {
@@ -39,6 +46,8 @@ typedef struct {
     uint16_t height;
     uint16_t x_offset;
     uint16_t y_offset;
+    uint8_t madctl;
+    st7789_panel_t panel;
 } st7789_config_t;
 
 bool st7789_init(st7789_t *dev, const st7789_bus_t *bus, const st7789_config_t *config);
@@ -46,6 +55,8 @@ void st7789_set_backlight(st7789_t *dev, bool on);
 void st7789_fill(st7789_t *dev, uint16_t color);
 void st7789_fill_rect(st7789_t *dev, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
 void st7789_draw_pixel(st7789_t *dev, uint16_t x, uint16_t y, uint16_t color);
+void st7789_begin_pixels(st7789_t *dev, uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+void st7789_end_pixels(st7789_t *dev);
 
 #ifdef __cplusplus
 }

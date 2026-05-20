@@ -15,10 +15,12 @@ typedef enum {
     EF_GPIO_LCD_DC,
     EF_GPIO_LCD_RES,
     EF_GPIO_LCD_BLK,
+    EF_GPIO_BUTTON_BOOT,
 } ef_gpio_id_t;
 
 void ef_gpio_write(ef_gpio_id_t id, bool active);
 void ef_gpio_toggle(ef_gpio_id_t id);
+bool ef_gpio_read(ef_gpio_id_t id);
 
 #ifdef __cplusplus
 }

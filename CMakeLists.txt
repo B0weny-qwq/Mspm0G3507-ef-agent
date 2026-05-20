@@ -38,6 +38,7 @@ add_library(ef_platform
 target_include_directories(ef_platform
   PUBLIC Platform/Inc
   PRIVATE
+    Drivers/Inc
     ${SDK}/source
     ${SDK}/source/third_party/CMSIS/Core/Include
 )
@@ -68,6 +69,7 @@ target_include_directories(ef_chipdrivers PUBLIC ChipDrivers/Inc)
 target_compile_options(ef_chipdrivers PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_boarddevices
+  BoardDevices/Src/board_button.c
   BoardDevices/Src/board_console.c
   BoardDevices/Src/board_flash.c
   BoardDevices/Src/board_lcd.c
@@ -80,6 +82,7 @@ target_compile_options(ef_boarddevices PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_components
   Components/Src/ef_component_placeholder.c
+  Components/Src/ef_button.c
 )
 
 target_include_directories(ef_components PUBLIC Components/Inc)
@@ -97,6 +100,7 @@ target_compile_options(ef_services PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_app
   App/Src/app.c
+  App/Src/app_button.c
 )
 
 target_include_directories(ef_app PUBLIC App/Inc)

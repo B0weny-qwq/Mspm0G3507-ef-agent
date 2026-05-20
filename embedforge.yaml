@@ -28,74 +28,114 @@ flash:
   backend: openocd
   adapter: cmsis-dap
   target: mspm0g3507
-  scripts_dir: /home/boweny/embedforge/configs/openocd
-  target_cfg: target/mspm0.cfg
+  scripts_dir: ${OPENOCD_SCRIPTS:-~/.local/openocd-git/share/openocd/scripts}
+  target_cfg: target/ti/mspm0.cfg
   artifact: build/app.elf
 
 resources:
   board: LP_MSPM0G3507
-  cpuclk_hz: 80000000
-  systick_hz: 1000
-  uart:
-    debug:
-      instance: UART0
-      baud: 115200
-      tx:
-        port: GPIOA
-        pin: 10
-        iomux: IOMUX_PINCM21
-      rx:
-        port: GPIOA
-        pin: 11
-        iomux: IOMUX_PINCM22
-  spi:
-    board:
-      instance: SPI1
-      sclk_hz: 40000000
-      poci:
+  mcu:
+    cpuclk_hz: 80000000
+    systick_hz: 1000
+  peripherals:
+    uart:
+      debug:
+        instance: UART0
+        baud: 115200
+        pins:
+          tx:
+            port: GPIOA
+            pin: 10
+            iomux: IOMUX_PINCM21
+          rx:
+            port: GPIOA
+            pin: 11
+            iomux: IOMUX_PINCM22
+    spi:
+      board:
+        instance: SPI1
+        sclk_hz: 40000000
+        dma:
+          tx_channel: 0
+          rx_channel: 1
+        pins:
+          poci:
+            port: GPIOB
+            pin: 7
+            iomux: IOMUX_PINCM24
+          pico:
+            port: GPIOB
+            pin: 8
+            iomux: IOMUX_PINCM25
+          sck:
+            port: GPIOB
+            pin: 9
+            iomux: IOMUX_PINCM26
+  board_devices:
+    flash:
+      onboard:
+        chip: W25Q128
+        bus: peripherals.spi.board
+        pins:
+          cs:
+            port: GPIOB
+            pin: 6
+            iomux: IOMUX_PINCM23
+    lcd:
+      onboard:
+        controller: TFT180/ST7789-compatible
+        width: 160
+        height: 128
+        x_offset: 1
+        y_offset: 2
+        madctl: 0xA0
+        bus: peripherals.spi.board
+        pins:
+          cs:
+            port: GPIOB
+            pin: 14
+            iomux: IOMUX_PINCM31
+          reset:
+            port: GPIOB
+            pin: 10
+            iomux: IOMUX_PINCM27
+          dc:
+            port: GPIOB
+            pin: 11
+            iomux: IOMUX_PINCM28
+          backlight:
+            port: GPIOB
+            pin: 26
+            iomux: IOMUX_PINCM57
+    buttons:
+      boot:
         port: GPIOB
-        pin: 7
-        iomux: IOMUX_PINCM24
-      pico:
+        pin: 21
+        iomux: IOMUX_PINCM49
+        pull: up
+        active: low
+        events:
+          debounce_ms: 20
+          click_ms: 300
+          long_press_ms: 800
+    leds:
+      user_led_1:
         port: GPIOB
-        pin: 8
-        iomux: IOMUX_PINCM25
-      sck:
-        port: GPIOB
-        pin: 9
-        iomux: IOMUX_PINCM26
-  flash:
-    onboard:
-      chip: W25Q128
-      bus: spi.board
-      cs:
-        port: GPIOB
-        pin: 6
-        iomux: IOMUX_PINCM23
-  lcd:
-    onboard:
-      controller: ST7789-compatible
-      width: 320
-      height: 170
-      bus: spi.board
-      cs:
-        port: GPIOB
-        pin: 14
-        iomux: IOMUX_PINCM31
-      reset:
-        port: GPIOB
-        pin: 10
-        iomux: IOMUX_PINCM27
-      dc:
-        port: GPIOB
-        pin: 11
-        iomux: IOMUX_PINCM28
-      backlight:
-        port: GPIOB
-        pin: 26
-        iomux: IOMUX_PINCM57
-  leds:
-    user_led_1:
-      port: GPIOB
-      pin: 22
-      iomux: IOMUX_PINCM50
+        pin: 22
+        iomux: IOMUX_PINCM50
+
+runtime:
+  log:
+    default_level: error
+    error_sink: lcd
+  buttons:
+    poll_period_ms: 10
+    dispatcher: app_button
+  display:
+    debug_page:
+      refresh_hz: 30
+      shows:
+        - frame_counter
+        - fps
+        - boot_button_state
+        - last_error

@@ -1,5 +1,6 @@
 #include "ef_platform.h"
 
+#include "ef_spi.h"
 #include "ti_msp_dl_config.h"
 
 static volatile uint32_t g_platform_millis;
@@ -7,6 +8,7 @@ static volatile uint32_t g_platform_millis;
 void ef_platform_init(void)
 {
     SYSCFG_DL_init();
+    ef_spi_init();
     g_platform_millis = 0U;
     (void) SysTick_Config((uint32_t) (CPUCLK_FREQ / 1000U));
 }
@@ -32,11 +34,15 @@ void ef_platform_delay_ms(uint32_t delay_ms)
     const uint32_t start = ef_platform_millis();
 
     while ((uint32_t) (ef_platform_millis() - start) < delay_ms) {
-        __WFI();
     }
 }
 
 void ef_platform_idle(void)
 {
-    __WFI();
+    ef_platform_service();
+}
+
+void ef_platform_service(void)
+{
+    ef_spi_poll(EF_SPI_BOARD);
 }

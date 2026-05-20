@@ -134,6 +134,14 @@ extern "C" {
 #define GPIO_BOARD_DEVICES_LCD_BLK_PIN                            DL_GPIO_PIN_26
 #define GPIO_BOARD_DEVICES_LCD_BLK_IOMUX                         (IOMUX_PINCM57)
 
+/* Port definition for Pin Group GPIO_BUTTONS */
+#define GPIO_BUTTONS_PORT                                                (GPIOB)
+
+/* Defines for BOOT: GPIOB.21 with pinCMx 49 on package pin 20 */
+#define GPIO_BUTTONS_BOOT_PIN                                   (DL_GPIO_PIN_21)
+#define GPIO_BUTTONS_BOOT_IOMUX                                  (IOMUX_PINCM49)
+#define GPIO_BUTTONS_BOOT_IOMUX_FUNC               IOMUX_PINCM49_PF_GPIOB_DIO21
+
 
 
 /* Port definition for Pin Group GPIO_LEDS */

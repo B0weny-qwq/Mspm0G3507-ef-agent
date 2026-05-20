@@ -14,9 +14,14 @@ typedef enum {
     EF_LOG_VERBOSE,
 } ef_log_level_t;
 
+typedef unsigned long (*ef_log_time_fn_t)(void);
+typedef void (*ef_log_sink_t)(ef_log_level_t level, const char *line, void *ctx);
+
 void ef_log_init(ef_log_level_t level);
 void ef_log_set_level(ef_log_level_t level);
 ef_log_level_t ef_log_get_level(void);
+void ef_log_set_time_fn(ef_log_time_fn_t time_fn);
+void ef_log_set_error_sink(ef_log_sink_t sink, void *ctx);
 void ef_log_write(ef_log_level_t level, const char *tag, const char *fmt, ...);
 
 #define EF_LOGE(tag, fmt, ...) ef_log_write(EF_LOG_ERROR, tag, fmt, ##__VA_ARGS__)

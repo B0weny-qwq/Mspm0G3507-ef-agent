@@ -16,6 +16,7 @@ bool board_flash_write(uint32_t address, const uint8_t *data, size_t len);
 bool board_flash_erase_sector_4k(uint32_t address);
 bool board_flash_erase_block_64k(uint32_t address);
 bool board_flash_erase_chip(void);
+bool board_flash_self_test(uint32_t sector_address);
 
 #ifdef __cplusplus
 }
