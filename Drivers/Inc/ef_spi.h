@@ -11,6 +11,7 @@ extern "C" {
 
 typedef enum {
     EF_SPI_BOARD = 0,
+    EF_SPI_SENSOR,
 } ef_spi_id_t;
 
 typedef void (*ef_spi_async_callback_t)(ef_spi_id_t id, void *ctx);

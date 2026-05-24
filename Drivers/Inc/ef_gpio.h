@@ -15,6 +15,8 @@ typedef enum {
     EF_GPIO_LCD_DC,
     EF_GPIO_LCD_RES,
     EF_GPIO_LCD_BLK,
+    EF_GPIO_IMU_CS,
+    EF_GPIO_OPTICAL_FLOW_CS,
     EF_GPIO_BUTTON_BOOT,
 } ef_gpio_id_t;
 

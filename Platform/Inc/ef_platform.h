@@ -10,6 +10,7 @@ extern "C" {
 void ef_platform_init(void);
 void ef_platform_tick_1ms_from_isr(void);
 uint32_t ef_platform_millis(void);
+void ef_platform_delay_us(uint32_t delay_us);
 void ef_platform_delay_ms(uint32_t delay_ms);
 void ef_platform_idle(void);
 void ef_platform_service(void);

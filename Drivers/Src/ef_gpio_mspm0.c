@@ -47,6 +47,20 @@ void ef_gpio_write(ef_gpio_id_t id, bool active)
             DL_GPIO_clearPins(GPIO_BOARD_DEVICES_PORT, GPIO_BOARD_DEVICES_LCD_BLK_PIN);
         }
         break;
+    case EF_GPIO_IMU_CS:
+        if (active) {
+            DL_GPIO_setPins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_IMU_CS_PIN);
+        } else {
+            DL_GPIO_clearPins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_IMU_CS_PIN);
+        }
+        break;
+    case EF_GPIO_OPTICAL_FLOW_CS:
+        if (active) {
+            DL_GPIO_setPins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN);
+        } else {
+            DL_GPIO_clearPins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN);
+        }
+        break;
     case EF_GPIO_BUTTON_BOOT:
         break;
     default:
@@ -75,6 +89,12 @@ void ef_gpio_toggle(ef_gpio_id_t id)
     case EF_GPIO_LCD_BLK:
         DL_GPIO_togglePins(GPIO_BOARD_DEVICES_PORT, GPIO_BOARD_DEVICES_LCD_BLK_PIN);
         break;
+    case EF_GPIO_IMU_CS:
+        DL_GPIO_togglePins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_IMU_CS_PIN);
+        break;
+    case EF_GPIO_OPTICAL_FLOW_CS:
+        DL_GPIO_togglePins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN);
+        break;
     case EF_GPIO_BUTTON_BOOT:
         break;
     default:
@@ -97,6 +117,10 @@ bool ef_gpio_read(ef_gpio_id_t id)
         return (DL_GPIO_readPins(GPIO_BOARD_DEVICES_PORT, GPIO_BOARD_DEVICES_LCD_RES_PIN) != 0U);
     case EF_GPIO_LCD_BLK:
         return (DL_GPIO_readPins(GPIO_BOARD_DEVICES_PORT, GPIO_BOARD_DEVICES_LCD_BLK_PIN) != 0U);
+    case EF_GPIO_IMU_CS:
+        return (DL_GPIO_readPins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_IMU_CS_PIN) != 0U);
+    case EF_GPIO_OPTICAL_FLOW_CS:
+        return (DL_GPIO_readPins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN) != 0U);
     case EF_GPIO_BUTTON_BOOT:
         return (DL_GPIO_readPins(GPIO_BUTTONS_PORT, GPIO_BUTTONS_BOOT_PIN) != 0U);
     default:

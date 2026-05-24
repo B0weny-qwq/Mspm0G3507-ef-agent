@@ -38,7 +38,6 @@ add_library(ef_platform
 target_include_directories(ef_platform
   PUBLIC Platform/Inc
   PRIVATE
-    Drivers/Inc
     ${SDK}/source
     ${SDK}/source/third_party/CMSIS/Core/Include
 )
@@ -47,7 +46,11 @@ target_compile_definitions(ef_platform PUBLIC __MSPM0G3507__)
 target_compile_options(ef_platform PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_drivers
+  Drivers/Src/ef_can_mspm0.c
+  Drivers/Src/ef_drivers.c
   Drivers/Src/ef_gpio_mspm0.c
+  Drivers/Src/ef_i2c_mspm0.c
+  Drivers/Src/ef_pwm_mspm0.c
   Drivers/Src/ef_spi_mspm0.c
   Drivers/Src/ef_uart_mspm0.c
 )
@@ -61,7 +64,10 @@ target_link_libraries(ef_drivers PRIVATE ef_platform)
 target_compile_options(ef_drivers PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_chipdrivers
+  ChipDrivers/Src/lsm6dsr.c
+  ChipDrivers/Src/pmw3901.c
   ChipDrivers/Src/st7789.c
+  ChipDrivers/Src/vl53l0x.c
   ChipDrivers/Src/w25q128.c
 )
 
@@ -72,8 +78,11 @@ add_library(ef_boarddevices
   BoardDevices/Src/board_button.c
   BoardDevices/Src/board_console.c
   BoardDevices/Src/board_flash.c
+  BoardDevices/Src/board_imu.c
   BoardDevices/Src/board_lcd.c
   BoardDevices/Src/board_led.c
+  BoardDevices/Src/board_optical_flow.c
+  BoardDevices/Src/board_tof.c
 )
 
 target_include_directories(ef_boarddevices PUBLIC BoardDevices/Inc)

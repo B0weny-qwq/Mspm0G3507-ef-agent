@@ -117,6 +117,109 @@ extern "C" {
 #define GPIO_SPI_BOARD_IOMUX_SCLK                                (IOMUX_PINCM26)
 #define GPIO_SPI_BOARD_IOMUX_SCLK_FUNC                 IOMUX_PINCM26_PF_SPI1_SCLK
 
+/* Defines for SPI_SENSOR */
+#define SPI_SENSOR_INST                                                     SPI0
+#define SPI_SENSOR_INST_IRQHandler                               SPI0_IRQHandler
+#define SPI_SENSOR_INST_INT_IRQN                                   SPI0_INT_IRQn
+#define SPI_SENSOR_INST_FREQUENCY                                     80000000U
+#define SPI_SENSOR_SCLK_HZ                                             2000000U
+#define GPIO_SPI_SENSOR_POCI_PORT                                         GPIOB
+#define GPIO_SPI_SENSOR_POCI_PIN                                  DL_GPIO_PIN_19
+#define GPIO_SPI_SENSOR_IOMUX_POCI                              (IOMUX_PINCM45)
+#define GPIO_SPI_SENSOR_IOMUX_POCI_FUNC               IOMUX_PINCM45_PF_SPI0_POCI
+#define GPIO_SPI_SENSOR_PICO_PORT                                         GPIOB
+#define GPIO_SPI_SENSOR_PICO_PIN                                  DL_GPIO_PIN_17
+#define GPIO_SPI_SENSOR_IOMUX_PICO                              (IOMUX_PINCM43)
+#define GPIO_SPI_SENSOR_IOMUX_PICO_FUNC               IOMUX_PINCM43_PF_SPI0_PICO
+#define GPIO_SPI_SENSOR_SCLK_PORT                                         GPIOB
+#define GPIO_SPI_SENSOR_SCLK_PIN                                  DL_GPIO_PIN_18
+#define GPIO_SPI_SENSOR_IOMUX_SCLK                              (IOMUX_PINCM44)
+#define GPIO_SPI_SENSOR_IOMUX_SCLK_FUNC               IOMUX_PINCM44_PF_SPI0_SCLK
+
+/* Defines for I2C_TOF */
+#define I2C_TOF_INST                                                         I2C0
+#define I2C_TOF_INST_IRQHandler                                    I2C0_IRQHandler
+#define I2C_TOF_INST_INT_IRQN                                      I2C0_INT_IRQn
+#define I2C_TOF_BUS_HZ                                                 400000U
+#define GPIO_I2C_TOF_SDA_PORT                                             GPIOA
+#define GPIO_I2C_TOF_SDA_PIN                                      DL_GPIO_PIN_0
+#define GPIO_I2C_TOF_IOMUX_SDA                                  (IOMUX_PINCM1)
+#define GPIO_I2C_TOF_IOMUX_SDA_FUNC                   IOMUX_PINCM1_PF_I2C0_SDA
+#define GPIO_I2C_TOF_SCL_PORT                                             GPIOA
+#define GPIO_I2C_TOF_SCL_PIN                                      DL_GPIO_PIN_1
+#define GPIO_I2C_TOF_IOMUX_SCL                                  (IOMUX_PINCM2)
+#define GPIO_I2C_TOF_IOMUX_SCL_FUNC                   IOMUX_PINCM2_PF_I2C0_SCL
+
+/* Defines for PWM timers */
+#define PWM_TIMER_CLK_HZ                                             CPUCLK_FREQ
+#define PWM_TIMA0_INST                                                    TIMA0
+#define PWM_TIMA0_PERIOD                                                 4000U
+#define GPIO_PWM3_PORT                                                   GPIOB
+#define GPIO_PWM3_PIN                                           DL_GPIO_PIN_12
+#define GPIO_PWM3_IOMUX                                        (IOMUX_PINCM29)
+#define GPIO_PWM3_IOMUX_FUNC                         IOMUX_PINCM29_PF_TIMA0_CCP2
+#define GPIO_PWM4_PORT                                                   GPIOB
+#define GPIO_PWM4_PIN                                           DL_GPIO_PIN_13
+#define GPIO_PWM4_IOMUX                                        (IOMUX_PINCM30)
+#define GPIO_PWM4_IOMUX_FUNC                         IOMUX_PINCM30_PF_TIMA0_CCP3
+
+#define PWM_TIMA1_INST                                                    TIMA1
+#define PWM_TIMA1_PERIOD                                                 4000U
+#define GPIO_MOTOR1_PWM_PORT                                             GPIOB
+#define GPIO_MOTOR1_PWM_PIN                                      DL_GPIO_PIN_0
+#define GPIO_MOTOR1_PWM_IOMUX                                  (IOMUX_PINCM12)
+#define GPIO_MOTOR1_PWM_IOMUX_FUNC                   IOMUX_PINCM12_PF_TIMA1_CCP0
+#define GPIO_MOTOR2_PWM_PORT                                             GPIOB
+#define GPIO_MOTOR2_PWM_PIN                                      DL_GPIO_PIN_1
+#define GPIO_MOTOR2_PWM_IOMUX                                  (IOMUX_PINCM13)
+#define GPIO_MOTOR2_PWM_IOMUX_FUNC                   IOMUX_PINCM13_PF_TIMA1_CCP1
+
+#define PWM_TIMG6_INST                                                    TIMG6
+#define PWM_TIMG6_PERIOD                                                 4000U
+#define GPIO_PWM7_PORT                                                   GPIOA
+#define GPIO_PWM7_PIN                                           DL_GPIO_PIN_29
+#define GPIO_PWM7_IOMUX                                         (IOMUX_PINCM4)
+#define GPIO_PWM7_IOMUX_FUNC                          IOMUX_PINCM4_PF_TIMG6_CCP0
+#define GPIO_PWM8_PORT                                                   GPIOB
+#define GPIO_PWM8_PIN                                           DL_GPIO_PIN_27
+#define GPIO_PWM8_IOMUX                                        (IOMUX_PINCM58)
+#define GPIO_PWM8_IOMUX_FUNC                         IOMUX_PINCM58_PF_TIMG6_CCP1
+
+#define PWM_TIMG12_INST                                                  TIMG12
+#define PWM_TIMG12_PERIOD                                                4000U
+#define GPIO_BUZZER_PWM_PORT                                             GPIOA
+#define GPIO_BUZZER_PWM_PIN                                     DL_GPIO_PIN_14
+#define GPIO_BUZZER_PWM_IOMUX                                 (IOMUX_PINCM36)
+#define GPIO_BUZZER_PWM_IOMUX_FUNC                  IOMUX_PINCM36_PF_TIMG12_CCP0
+
+/* Defines for MCAN0 */
+#define MCAN0_INST                                                        CANFD0
+#define MCAN0_INST_IRQHandler                                 CANFD0_IRQHandler
+#define MCAN0_INST_INT_IRQN                                     CANFD0_INT_IRQn
+#define GPIO_MCAN0_CAN_TX_PORT                                             GPIOA
+#define GPIO_MCAN0_CAN_TX_PIN                                     DL_GPIO_PIN_12
+#define GPIO_MCAN0_IOMUX_CAN_TX                                  (IOMUX_PINCM34)
+#define GPIO_MCAN0_IOMUX_CAN_TX_FUNC               IOMUX_PINCM34_PF_CANFD0_CANTX
+#define GPIO_MCAN0_CAN_RX_PORT                                             GPIOA
+#define GPIO_MCAN0_CAN_RX_PIN                                     DL_GPIO_PIN_13
+#define GPIO_MCAN0_IOMUX_CAN_RX                                  (IOMUX_PINCM35)
+#define GPIO_MCAN0_IOMUX_CAN_RX_FUNC               IOMUX_PINCM35_PF_CANFD0_CANRX
+
+#define MCAN0_INST_MCAN_STD_ID_FILT_START_ADDR                             (0)
+#define MCAN0_INST_MCAN_STD_ID_FILTER_NUM                                  (0)
+#define MCAN0_INST_MCAN_EXT_ID_FILT_START_ADDR                             (0)
+#define MCAN0_INST_MCAN_EXT_ID_FILTER_NUM                                  (0)
+#define MCAN0_INST_MCAN_TX_BUFF_START_ADDR                                 (0)
+#define MCAN0_INST_MCAN_TX_BUFF_SIZE                                       (1)
+#define MCAN0_INST_MCAN_TX_EVENT_START_ADDR                               (72)
+#define MCAN0_INST_MCAN_TX_EVENT_SIZE                                      (2)
+#define MCAN0_INST_MCAN_RX_BUFF_START_ADDR                               (104)
+#define MCAN0_INST_MCAN_FIFO_0_START_ADDR                                (176)
+#define MCAN0_INST_MCAN_FIFO_0_NUM                                        (1)
+#define MCAN0_INST_MCAN_FIFO_1_START_ADDR                                (248)
+#define MCAN0_INST_MCAN_FIFO_1_NUM                                        (0)
+#define MCAN0_INST_MCAN_EXT_ID_AND_MASK                           (0x1FFFFFFFU)
+
 /* Port definition for Pin Group GPIO_BOARD_DEVICES */
 #define GPIO_BOARD_DEVICES_PORT                                           (GPIOB)
 
@@ -134,6 +237,17 @@ extern "C" {
 #define GPIO_BOARD_DEVICES_LCD_BLK_PIN                            DL_GPIO_PIN_26
 #define GPIO_BOARD_DEVICES_LCD_BLK_IOMUX                         (IOMUX_PINCM57)
 
+/* Port definition for Pin Group GPIO_SENSOR_DEVICES */
+#define GPIO_SENSOR_DEVICES_PORT                                          (GPIOA)
+
+/* LSM6DSR chip-select: GPIOA.17 */
+#define GPIO_SENSOR_DEVICES_IMU_CS_PIN                            DL_GPIO_PIN_17
+#define GPIO_SENSOR_DEVICES_IMU_CS_IOMUX                         (IOMUX_PINCM39)
+
+/* Optical-flow chip-select: GPIOA.16 */
+#define GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN                   DL_GPIO_PIN_16
+#define GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_IOMUX                (IOMUX_PINCM38)
+
 /* Port definition for Pin Group GPIO_BUTTONS */
 #define GPIO_BUTTONS_PORT                                                (GPIOB)
 
@@ -150,9 +264,6 @@ extern "C" {
 /* Defines for USER_LED_1: GPIOB.22 with pinCMx 50 on package pin 21 */
 #define GPIO_LEDS_USER_LED_1_PIN                                (DL_GPIO_PIN_22)
 #define GPIO_LEDS_USER_LED_1_IOMUX                               (IOMUX_PINCM50)
-/* Defines for USER_LED_3: GPIOB.27 with pinCMx 58 on package pin 29 */
-#define GPIO_LEDS_USER_LED_3_PIN                                (DL_GPIO_PIN_27)
-#define GPIO_LEDS_USER_LED_3_IOMUX                               (IOMUX_PINCM58)
 /* Defines for USER_TEST: GPIOB.16 with pinCMx 33 on package pin 4 */
 #define GPIO_LEDS_USER_TEST_PIN                                 (DL_GPIO_PIN_16)
 #define GPIO_LEDS_USER_TEST_IOMUX                                (IOMUX_PINCM33)
@@ -166,6 +277,10 @@ void SYSCFG_DL_GPIO_init(void);
 void SYSCFG_DL_SYSCTL_init(void);
 void SYSCFG_DL_UART_DEBUG_init(void);
 void SYSCFG_DL_SPI_BOARD_init(void);
+void SYSCFG_DL_SPI_SENSOR_init(void);
+void SYSCFG_DL_I2C_TOF_init(void);
+void SYSCFG_DL_PWM_init(void);
+void SYSCFG_DL_MCAN0_init(void);
 
 
 

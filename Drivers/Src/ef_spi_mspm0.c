@@ -25,6 +25,7 @@ typedef struct {
 
 static ef_spi_async_state_t g_spi_async[1];
 static volatile uint8_t g_spi_rx_discard;
+static bool g_spi_initialized;
 
 static void ef_spi_spi_irq_handler(void);
 
@@ -46,6 +47,8 @@ static SPI_Regs *ef_spi_inst(ef_spi_id_t id)
     switch (id) {
     case EF_SPI_BOARD:
         return SPI_BOARD_INST;
+    case EF_SPI_SENSOR:
+        return SPI_SENSOR_INST;
     default:
         return NULL;
     }
@@ -63,6 +66,10 @@ static ef_spi_async_state_t *ef_spi_async_state(ef_spi_id_t id)
 
 void ef_spi_init(void)
 {
+    if (g_spi_initialized) {
+        return;
+    }
+
     DL_DMA_configTransfer(DMA, EF_SPI_BOARD_DMA_TX_CH,
         DL_DMA_SINGLE_TRANSFER_MODE,
         DL_DMA_NORMAL_MODE,
@@ -84,10 +91,12 @@ void ef_spi_init(void)
     DL_DMA_disableChannel(DMA, EF_SPI_BOARD_DMA_RX_CH);
 
     DL_SPI_setFIFOThreshold(SPI_BOARD_INST, DL_SPI_RX_FIFO_LEVEL_ONE_FRAME, DL_SPI_TX_FIFO_LEVEL_ONE_FRAME);
+    DL_SPI_setFIFOThreshold(SPI_SENSOR_INST, DL_SPI_RX_FIFO_LEVEL_ONE_FRAME, DL_SPI_TX_FIFO_LEVEL_ONE_FRAME);
     DL_SPI_clearInterruptStatus(SPI_BOARD_INST, EF_SPI_DMA_SPI_INTERRUPTS);
     DL_SPI_enableDMATransmitEvent(SPI_BOARD_INST);
     DL_SPI_enableDMAReceiveEvent(SPI_BOARD_INST, DL_SPI_DMA_INTERRUPT_RX);
     NVIC_EnableIRQ(SPI_BOARD_INST_INT_IRQN);
+    g_spi_initialized = true;
 }
 
 uint8_t ef_spi_transfer_byte(ef_spi_id_t id, uint8_t tx)
@@ -97,6 +106,8 @@ uint8_t ef_spi_transfer_byte(ef_spi_id_t id, uint8_t tx)
     if (spi == NULL) {
         return 0xFFU;
     }
+
+    ef_spi_init();
 
     while (ef_spi_is_busy(id)) {
         ef_spi_poll(id);
@@ -117,6 +128,8 @@ void ef_spi_write(ef_spi_id_t id, const uint8_t *data, size_t len)
     if (data == NULL) {
         return;
     }
+
+    ef_spi_init();
 
     while (ef_spi_is_busy(id)) {
         ef_spi_poll(id);
@@ -141,6 +154,8 @@ void ef_spi_read(ef_spi_id_t id, uint8_t fill, uint8_t *data, size_t len)
         return;
     }
 
+    ef_spi_init();
+
     while (ef_spi_is_busy(id)) {
         ef_spi_poll(id);
     }
@@ -152,6 +167,8 @@ void ef_spi_read(ef_spi_id_t id, uint8_t fill, uint8_t *data, size_t len)
 
 void ef_spi_transfer(ef_spi_id_t id, const uint8_t *tx, uint8_t *rx, size_t len)
 {
+    ef_spi_init();
+
     while (ef_spi_is_busy(id)) {
         ef_spi_poll(id);
     }
@@ -171,7 +188,13 @@ bool ef_spi_write_async(ef_spi_id_t id, const uint8_t *data, size_t len, ef_spi_
     SPI_Regs *const spi = ef_spi_inst(id);
     ef_spi_async_state_t *const state = ef_spi_async_state(id);
 
-    if ((spi == NULL) || (state == NULL) || (data == NULL) || (len == 0U) || (len > EF_SPI_DMA_MAX_LEN) || state->busy) {
+    if ((spi == NULL) || (state == NULL) || (data == NULL) || (len == 0U) || (len > EF_SPI_DMA_MAX_LEN)) {
+        return false;
+    }
+
+    ef_spi_init();
+
+    if (state->busy) {
         return false;
     }
 

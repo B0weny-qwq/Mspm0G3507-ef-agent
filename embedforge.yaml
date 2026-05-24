@@ -46,7 +46,7 @@ flash:
   artifact: build/app.elf
 
 resources:
-  board: LP_MSPM0G3507
+  board: tianmengxing_mspm0g3507
   mcu:
     cpuclk_hz: 80000000
     systick_hz: 1000
@@ -55,17 +55,61 @@ resources:
       debug:
         instance: UART0
         baud: 115200
+        role: default_bsl_uart
         pins:
           tx:
             port: GPIOA
             pin: 10
             iomux: IOMUX_PINCM21
+            function: IOMUX_PINCM21_PF_UART0_TX
+            signal: BSLTX
           rx:
             port: GPIOA
             pin: 11
             iomux: IOMUX_PINCM22
+            function: IOMUX_PINCM22_PF_UART0_RX
+            signal: BSLRX
+      uart1:
+        instance: UART1
+        pins:
+          tx:
+            port: GPIOA
+            pin: 8
+            iomux: IOMUX_PINCM19
+            function: IOMUX_PINCM19_PF_UART1_TX
+          rx:
+            port: GPIOA
+            pin: 9
+            iomux: IOMUX_PINCM20
+            function: IOMUX_PINCM20_PF_UART1_RX
+      uart2:
+        instance: UART2
+        pins:
+          tx:
+            port: GPIOB
+            pin: 15
+            iomux: IOMUX_PINCM32
+            function: IOMUX_PINCM32_PF_UART2_TX
+          rx:
+            port: GPIOB
+            pin: 16
+            iomux: IOMUX_PINCM33
+            function: IOMUX_PINCM33_PF_UART2_RX
+      uart3:
+        instance: UART3
+        pins:
+          tx:
+            port: GPIOB
+            pin: 2
+            iomux: IOMUX_PINCM15
+            function: IOMUX_PINCM15_PF_UART3_TX
+          rx:
+            port: GPIOB
+            pin: 3
+            iomux: IOMUX_PINCM16
+            function: IOMUX_PINCM16_PF_UART3_RX
     spi:
-      board:
+      screen:
         instance: SPI1
         sclk_hz: 40000000
         dma:
@@ -76,55 +120,414 @@ resources:
             port: GPIOB
             pin: 7
             iomux: IOMUX_PINCM24
+            function: IOMUX_PINCM24_PF_SPI1_POCI
           pico:
             port: GPIOB
             pin: 8
             iomux: IOMUX_PINCM25
+            function: IOMUX_PINCM25_PF_SPI1_PICO
           sck:
             port: GPIOB
             pin: 9
             iomux: IOMUX_PINCM26
+            function: IOMUX_PINCM26_PF_SPI1_SCLK
+      sensor:
+        instance: SPI0
+        sclk_hz: 2000000
+        mode: 3
+        note: PMW3901 maximum SPI clock is 2 MHz, so the shared sensor bus uses the stricter optical-flow limit.
+        pins:
+          pico:
+            port: GPIOB
+            pin: 17
+            iomux: IOMUX_PINCM43
+            function: IOMUX_PINCM43_PF_SPI0_PICO
+            direction: controller_out_peripheral_in
+          poci:
+            port: GPIOB
+            pin: 19
+            iomux: IOMUX_PINCM45
+            function: IOMUX_PINCM45_PF_SPI0_POCI
+            direction: controller_in_peripheral_out
+          sck:
+            port: GPIOB
+            pin: 18
+            iomux: IOMUX_PINCM44
+            function: IOMUX_PINCM44_PF_SPI0_SCLK
+    i2c:
+      tof:
+        instance: I2C0
+        pins:
+          scl:
+            port: GPIOA
+            pin: 1
+            iomux: IOMUX_PINCM2
+            function: IOMUX_PINCM2_PF_I2C0_SCL
+          sda:
+            port: GPIOA
+            pin: 0
+            iomux: IOMUX_PINCM1
+            function: IOMUX_PINCM1_PF_I2C0_SDA
+    pwm:
+      pwm1:
+        timer: TIMA0
+        channel: 0
+        function: TIMA0_C0
+        status: unassigned
+      pwm2:
+        timer: TIMA0
+        channel: 1
+        function: TIMA0_C1
+        status: unassigned
+      pwm3:
+        timer: TIMA0
+        channel: 2
+        function: TIMA0_C2
+        pin:
+          port: GPIOB
+          pin: 12
+          iomux: IOMUX_PINCM29
+          function: IOMUX_PINCM29_PF_TIMA0_CCP2
+      pwm4:
+        timer: TIMA0
+        channel: 3
+        function: TIMA0_C3
+        pin:
+          port: GPIOB
+          pin: 13
+          iomux: IOMUX_PINCM30
+          function: IOMUX_PINCM30_PF_TIMA0_CCP3
+      pwm5:
+        timer: TIMG0
+        channel: 0
+        function: TIMG0_C0
+        status: unassigned
+      pwm6:
+        timer: TIMG0
+        channel: 1
+        function: TIMG0_C1
+        status: unassigned
+      pwm7:
+        timer: TIMG6
+        channel: 0
+        function: TIMG6_C0
+        pin:
+          port: GPIOA
+          pin: 29
+          iomux: IOMUX_PINCM4
+          function: IOMUX_PINCM4_PF_TIMG6_CCP0
+      pwm8:
+        timer: TIMG6
+        channel: 1
+        function: TIMG6_C1
+        pin:
+          port: GPIOB
+          pin: 27
+          iomux: IOMUX_PINCM58
+          function: IOMUX_PINCM58_PF_TIMG6_CCP1
+      pwm9_buzzer:
+        timer: TIMG12
+        channel: 0
+        function: TIMG12_C0
+        pin:
+          port: GPIOA
+          pin: 14
+          iomux: IOMUX_PINCM36
+          function: IOMUX_PINCM36_PF_TIMG12_CCP0
+      pwm10:
+        timer: TIMG12
+        channel: 1
+        function: TIMG12_C1
+        status: unassigned
+      motor1_pwma:
+        timer: TIMA1
+        channel: 0
+        function: TIMA1_C0
+        pin:
+          port: GPIOB
+          pin: 0
+          iomux: IOMUX_PINCM12
+          function: IOMUX_PINCM12_PF_TIMA1_CCP0
+      motor2_pwmb:
+        timer: TIMA1
+        channel: 1
+        function: TIMA1_C1
+        pin:
+          port: GPIOB
+          pin: 1
+          iomux: IOMUX_PINCM13
+          function: IOMUX_PINCM13_PF_TIMA1_CCP1
+    timers:
+      encoder2_qei:
+        instance: TIMG8
+        mode: qei
+        pins:
+          phase_a:
+            port: GPIOA
+            pin: 26
+            iomux: IOMUX_PINCM59
+            function: IOMUX_PINCM59_PF_TIMG8_CCP0
+          phase_b:
+            port: GPIOA
+            pin: 27
+            iomux: IOMUX_PINCM60
+            function: IOMUX_PINCM60_PF_TIMG8_CCP1
+      encoder1_capture:
+        instance: TIMG7
+        mode: capture_or_software_decode
+        qei: false
+        pins:
+          phase_a:
+            port: GPIOA
+            pin: 28
+            iomux: IOMUX_PINCM3
+            function: IOMUX_PINCM3_PF_TIMG7_CCP0
+          phase_b:
+            port: GPIOA
+            pin: 31
+            iomux: IOMUX_PINCM6
+            function: IOMUX_PINCM6_PF_TIMG7_CCP1
+    adc:
+      grayscale:
+        instance: ADC0
+        pins:
+          analog_select:
+            port: GPIOA
+            pin: 25
+            iomux: IOMUX_PINCM55
+    can:
+      vehicle:
+        instance: CANFD0
+        pins:
+          tx:
+            port: GPIOA
+            pin: 12
+            iomux: IOMUX_PINCM34
+            function: IOMUX_PINCM34_PF_CANFD0_CANTX
+          rx:
+            port: GPIOA
+            pin: 13
+            iomux: IOMUX_PINCM35
+            function: IOMUX_PINCM35_PF_CANFD0_CANRX
+    debug:
+      swd:
+        pins:
+          swdio:
+            port: GPIOA
+            pin: 19
+            iomux: IOMUX_PINCM41
+            function: IOMUX_PINCM41_PF_DEBUGSS_SWDIO
+          swclk:
+            port: GPIOA
+            pin: 20
+            iomux: IOMUX_PINCM42
+            function: IOMUX_PINCM42_PF_DEBUGSS_SWCLK
   board_devices:
     flash:
       onboard:
         chip: W25Q128
-        bus: peripherals.spi.board
+        bus: peripherals.spi.screen
+        role: core_board_builtin
         pins:
           cs:
             port: GPIOB
             pin: 6
             iomux: IOMUX_PINCM23
+            function: IOMUX_PINCM23_PF_GPIOB_DIO06
+            signal: W_CS
     lcd:
       onboard:
+        role: core_board_builtin
         controller: TFT180/ST7789-compatible
         width: 160
         height: 128
         x_offset: 1
         y_offset: 2
         madctl: 0xA0
-        bus: peripherals.spi.board
+        bus: peripherals.spi.screen
         pins:
           cs:
             port: GPIOB
             pin: 14
             iomux: IOMUX_PINCM31
+            function: IOMUX_PINCM31_PF_GPIOB_DIO14
           reset:
             port: GPIOB
             pin: 10
             iomux: IOMUX_PINCM27
+            function: IOMUX_PINCM27_PF_GPIOB_DIO10
+            purpose: lcd_reset
           dc:
             port: GPIOB
             pin: 11
             iomux: IOMUX_PINCM28
+            function: IOMUX_PINCM28_PF_GPIOB_DIO11
           backlight:
             port: GPIOB
             pin: 26
             iomux: IOMUX_PINCM57
+            function: IOMUX_PINCM57_PF_GPIOB_DIO26
+    tof:
+      front:
+        chip: VL53L0X
+        bus: peripherals.i2c.tof
+        address_7bit: 0x29
+        mode: polling
+        default:
+          profile: default
+          io_timeout_ms: 10
+          note: Datasheet provides I2C reference registers only; full ranging init requires ST API.
+        pins:
+          xshut:
+            status: unassigned
+            note: Not connected to MCU GPIO in current pin table; sensor must be pulled up externally.
+          int:
+            status: unassigned
+            note: GPIO1 interrupt is not connected, so BoardDevice uses polling/online check.
+    imu:
+      main:
+        chip: LSM6DSR
+        bus: peripherals.spi.sensor
+        default:
+          accel_odr_hz: 104
+          accel_full_scale_g: 4
+          gyro_odr_hz: 104
+          gyro_full_scale_dps: 2000
+        pins:
+          cs:
+            port: GPIOA
+            pin: 17
+            iomux: IOMUX_PINCM39
+            function: IOMUX_PINCM39_PF_GPIOA_DIO17
+            active: low
+          int1:
+            status: unassigned
+          int2:
+            status: unassigned
+    optical_flow:
+      main:
+        chip: PMW3901
+        bus: peripherals.spi.sensor
+        default:
+          spi_max_hz: 2000000
+          mode: polling
+          swap_xy: false
+          invert_x: false
+          invert_y: false
+        pins:
+          cs:
+            port: GPIOA
+            pin: 16
+            iomux: IOMUX_PINCM38
+            function: IOMUX_PINCM38_PF_GPIOA_DIO16
+            active: low
+          mot:
+            status: unassigned
+          reset:
+            status: unassigned
+            purpose: sensor_reset
+    motors:
+      motor1:
+        pwm: peripherals.pwm.motor1_pwma
+        pins:
+          direction:
+            port: GPIOA
+            pin: 7
+            iomux: IOMUX_PINCM14
+            function: IOMUX_PINCM14_PF_GPIOA_DIO07
+      motor2:
+        pwm: peripherals.pwm.motor2_pwmb
+        pins:
+          direction:
+            port: GPIOA
+            pin: 30
+            iomux: IOMUX_PINCM5
+            function: IOMUX_PINCM5_PF_GPIOA_DIO30
+    encoders:
+      encoder2:
+        timer: peripherals.timers.encoder2_qei
+        qei: true
+      encoder1:
+        timer: peripherals.timers.encoder1_capture
+        qei: false
+        note: TIMG7 does not provide hardware QEI; use capture/interrupt/software decode.
+    grayscale:
+      main:
+        analog: peripherals.adc.grayscale
+        pins:
+          s0:
+            port: GPIOA
+            pin: 24
+            iomux: IOMUX_PINCM54
+            function: IOMUX_PINCM54_PF_GPIOA_DIO24
+          s1:
+            port: GPIOB
+            pin: 24
+            iomux: IOMUX_PINCM52
+            function: IOMUX_PINCM52_PF_GPIOB_DIO24
+          s2:
+            port: GPIOB
+            pin: 25
+            iomux: IOMUX_PINCM56
+            function: IOMUX_PINCM56_PF_GPIOB_DIO25
+          s3:
+            port: GPIOA
+            pin: 22
+            iomux: IOMUX_PINCM47
+            function: IOMUX_PINCM47_PF_GPIOA_DIO22
+    expansion_gpio:
+      io2:
+        status: unassigned
+      io3:
+        status: unassigned
+      io4:
+        status: unassigned
+      io5:
+        port: GPIOB
+        pin: 23
+        iomux: IOMUX_PINCM51
+        function: IOMUX_PINCM51_PF_GPIOB_DIO23
+      io6:
+        status: disabled
+        reason: PB27 is assigned to PWM8/TIMG6_C1.
+      io7:
+        status: disabled
+        reason: PA29 is assigned to PWM7/TIMG6_C0.
+    spi_select:
+      port: GPIOA
+      pin: 15
+      iomux: IOMUX_PINCM37
+      function: IOMUX_PINCM37_PF_GPIOA_DIO15
+    buzzer:
+      main:
+        pwm: peripherals.pwm.pwm9_buzzer
     buttons:
+      button1:
+        port: GPIOB
+        pin: 20
+        iomux: IOMUX_PINCM48
+        function: IOMUX_PINCM48_PF_GPIOB_DIO20
+        pull: up
+        active: low
+      button2:
+        port: GPIOB
+        pin: 4
+        iomux: IOMUX_PINCM17
+        function: IOMUX_PINCM17_PF_GPIOB_DIO04
+        pull: up
+        active: low
+      button3:
+        port: GPIOB
+        pin: 5
+        iomux: IOMUX_PINCM18
+        function: IOMUX_PINCM18_PF_GPIOB_DIO05
+        pull: up
+        active: low
       boot:
         port: GPIOB
         pin: 21
         iomux: IOMUX_PINCM49
+        function: IOMUX_PINCM49_PF_GPIOB_DIO21
         pull: up
         active: low
         events:
@@ -136,10 +539,29 @@ resources:
         port: GPIOB
         pin: 22
         iomux: IOMUX_PINCM50
+        function: IOMUX_PINCM50_PF_GPIOB_DIO22
+  resource_warnings:
+    pin_conflict_priority:
+      priority: highest=spi,i2c,uart,can,debug; middle=encoder; lowest=gpio,pwm,button,buzzer
+      note: When a physical pin conflicts, keep the highest-priority resource and disable or reassign the lower-priority resource.
+    io6_io7_disabled_for_pwm7_pwm8:
+      pins:
+        - PA29
+        - PB27
+      note: GPIO.IO7/GPIO.IO6 are disabled because PA29/PB27 are assigned to PWM7/PWM8.
+    qei_limit:
+      note: TIMG8 can be used for hardware QEI on PA26/PA27. PA28/PA31 use TIMG7 and require capture/interrupt/software decode.
+    core_board_builtin_debug_bsl:
+      pins:
+        - PA10
+        - PA11
+        - PA19
+        - PA20
+      note: Core board built-in Debug/BSL uses PA19 SWDIO, PA20 SWCLK, PA10 UART0_TX/BSLTX, and PA11 UART0_RX/BSLRX.
 
 runtime:
   log:
-    default_level: error
+    default_level: info
     error_sink: lcd
   buttons:
     poll_period_ms: 10
