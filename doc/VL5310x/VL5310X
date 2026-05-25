@@ -1,0 +1,722 @@
+下面是**基于你上传的 VL53L0X datasheet**整理的驱动提取版。注意：这个 PDF 不是完整寄存器编程手册，ST 明确建议通过 VL53L0X API 控制，很多底层寄存器初始化序列没有在这份 datasheet 里展开。
+
+---
+
+## 1. 芯片基本信息
+
+* 芯片型号：VL53L0X
+* 厂商：STMicroelectronics / ST
+* 芯片类型：ToF 激光测距传感器 / 距离传感器 / 1D gesture detection
+* 供电电压范围：AVDD = 2.6 V ~ 3.5 V，典型 2.8 V
+* IO 电平范围：
+
+  * Standard mode：IOVDD = 1.6 V ~ 1.9 V，典型 1.8 V
+  * 2V8 mode：IOVDD = 2.6 V ~ 3.5 V，需要通过 API/device settings 配置
+  * 绝对最大：SCL / SDA / XSHUT / GPIO1 为 -0.5 V ~ 3.6 V
+* 封装/引脚数：Optical LGA12，12 pin，尺寸 4.40 × 2.40 × 1.00 mm
+* 上电默认状态：
+
+  * AVDD 存在且 XSHUT = Low：HW Standby
+  * AVDD 存在且 XSHUT 拉高：进入 FW Boot，然后进入 SW Standby
+  * tBOOT 最大 1.2 ms
+  * 数据手册说明 AVDD 上电时 IO 可以为高、低或悬空，但 XSHUT 高电平只应在 AVDD 已上电时出现
+
+---
+
+## 2. 通信接口
+
+* 支持接口：I2C，XSHUT GPIO，GPIO1 interrupt
+* 推荐接口：I2C Fast mode，最高 400 kHz
+* I2C 7-bit 地址：
+
+  * datasheet 写的是 `0x52`，这是 **8-bit write address**
+  * 实际 7-bit 地址是：`0x29`
+  * read address 是 `0x53`
+  * MSPM0 / STM32 / Linux I2C 驱动里一般填 `0x29`，不是 `0x52`
+* I2C 地址是否可配置：可配置，datasheet 特性中写了 programmable I2C address
+* SPI mode：不支持
+* SPI 最大时钟：不适用
+* SPI 读写格式：不适用
+* 寄存器地址宽度：8-bit index / 8-bit register address
+* 多字节读写是否自增：支持 auto-increment，地址递增
+* 是否需要 dummy byte：datasheet 未提到 dummy byte，按 I2C index + data 方式读写
+* CS 时序要求：无 CS，引脚中没有 SPI CS
+* UART 波特率/帧格式：不支持 UART
+
+I2C 写格式：
+
+```c
+START -> 0x52(write) -> INDEX[7:0] -> DATA[7:0] -> STOP
+```
+
+I2C 读格式：
+
+```c
+START -> 0x52(write) -> INDEX[7:0] -> STOP/RESTART
+START -> 0x53(read) -> DATA[7:0] -> STOP
+```
+
+多字节读写按地址递增，16/32 bit 数据按 **MSB first** 传输。
+
+---
+
+## 3. 关键引脚
+
+### 引脚名：AVDDVCSEL
+
+* 功能：VCSEL 激光发射器供电
+* 输入/输出/双向：电源输入
+* 高有效/低有效：不适用
+* 上拉/下拉要求：不适用
+* 上电默认状态：随 AVDD 供电
+* 是否必须连接：必须连接主电源
+* 驱动中用途：不直接由软件控制，但影响测距和发射器工作
+
+### 引脚名：AVSSVCSEL
+
+* 功能：VCSEL 地
+* 输入/输出/双向：地
+* 高有效/低有效：不适用
+* 上拉/下拉要求：不适用
+* 上电默认状态：GND
+* 是否必须连接：必须接主地
+* 驱动中用途：无软件用途
+
+### 引脚名：AVDD
+
+* 功能：主供电
+* 输入/输出/双向：电源输入
+* 高有效/低有效：不适用
+* 上拉/下拉要求：靠近 AVDDVCSEL / AVSSVCSEL 放置去耦电容
+* 上电默认状态：无电时 Power Off，有电后根据 XSHUT 状态启动
+* 是否必须连接：必须连接
+* 驱动中用途：决定芯片是否上电；如果板子有电源 EN，需要 BoardDevice 控制
+
+### 引脚名：GND / GND2 / GND3 / GND4
+
+* 功能：地
+* 输入/输出/双向：地
+* 高有效/低有效：不适用
+* 上拉/下拉要求：不适用
+* 上电默认状态：GND
+* 是否必须连接：必须接主地
+* 驱动中用途：无软件用途
+
+### 引脚名：XSHUT
+
+* 功能：Xshutdown，硬件关断 / 硬件待机 / reset 控制
+* 输入/输出/双向：数字输入
+* 高有效/低有效：低有效，Active Low
+* 上拉/下拉要求：
+
+  * datasheet 建议 XSHUT 必须始终被驱动，避免漏电
+  * 如果主控状态不确定，需要上拉
+  * 推荐上拉值：10 kΩ
+* 上电默认状态：
+
+  * Low：HW Standby，无 I2C 通信
+  * High：启动 FW boot，随后进入 SW Standby
+* 是否必须连接：
+
+  * 单个芯片可上拉到 AVDD
+  * 多个 VL53L0X 共用 I2C 时强烈建议每个 XSHUT 独立接 MCU GPIO，用于改地址和复位
+* 驱动中用途：
+
+  * 硬复位
+  * 低功耗 standby
+  * 多设备地址配置时逐个释放设备
+
+### 引脚名：GPIO1
+
+* 功能：测距完成中断输出
+* 输入/输出/双向：数字输出
+* 高有效/低有效：datasheet 未给出默认极性，需看 API 配置
+* 输出类型：Open drain / 开漏输出
+* 上拉/下拉要求：推荐 10 kΩ 上拉；不用时可悬空
+* 上电默认状态：datasheet 未说明
+* 是否必须连接：非必须；轮询模式可不接
+* 驱动中用途：
+
+  * new measurement ready 中断
+  * 替代 polling，提高实时性
+
+### 引脚名：SDA
+
+* 功能：I2C serial data
+* 输入/输出/双向：双向
+* 高有效/低有效：I2C 开漏总线逻辑
+* 上拉/下拉要求：
+
+  * 需要外部上拉
+  * AVDD = 2.8 V、I2C = 400 kHz 时，推荐 1.5 kΩ ~ 2 kΩ
+  * 上拉通常每条 I2C bus 放一次，靠近 host
+* 上电默认状态：总线空闲为高
+* 是否必须连接：必须连接
+* 驱动中用途：寄存器/API I2C 数据传输
+
+### 引脚名：SCL
+
+* 功能：I2C serial clock
+* 输入/输出/双向：输入
+* 高有效/低有效：I2C 时钟
+* 上拉/下拉要求：同 SDA
+* 上电默认状态：总线空闲为高
+* 是否必须连接：必须连接
+* 驱动中用途：I2C 时钟
+
+### 引脚名：DNC
+
+* 功能：Do Not Connect
+* 输入/输出/双向：datasheet 标为 digital input
+* 高有效/低有效：不适用
+* 上拉/下拉要求：必须悬空
+* 上电默认状态：不关心
+* 是否必须连接：不能连接
+* 驱动中用途：无
+
+---
+
+## 4. 初始化流程
+
+### 硬件上电 / reset 流程
+
+1. 给 AVDD / AVDDVCSEL 供电
+
+   * 电压范围：2.6 V ~ 3.5 V
+   * datasheet 说明无严格电源时序要求
+
+2. 控制 XSHUT
+
+   * 若 XSHUT = Low：芯片处于 HW Standby
+   * 若 XSHUT 从 Low 拉高：芯片开始 FW Boot
+
+3. 等待 boot 完成
+
+   * tBOOT 最大值：1.2 ms
+   * 驱动建议 timeout：5 ms
+
+4. 进入 SW Standby
+
+   * 此时可以通过 I2C 通信
+   * 可读取参考寄存器检查 I2C 是否正常
+
+### API 初始化流程
+
+datasheet 没有给出完整寄存器写入序列，而是说明用户应通过 VL53L0X API 进行初始化、校准、启动/停止测距、选择精度和工作模式。
+
+建议驱动流程：
+
+1. `xshut_low()`
+
+   * 延时：datasheet 未给 reset pulse 最小值
+   * 工程建议：2 ms ~ 5 ms
+
+2. `xshut_high()`
+
+   * 等待：tBOOT max 1.2 ms
+   * 工程建议：delay 2 ms ~ 5 ms
+
+3. 检查 I2C 在线
+
+   * 读 `0xC0`，期望 `0xEE`
+   * 读 `0xC1`，期望 `0xAA`
+   * 读 `0xC2`，期望 `0x10`
+
+4. 调用官方 API 初始化
+
+   * Device initialization and settings：约 40 ms
+   * 具体寄存器写入值：本 datasheet 未给出
+
+5. 装载校准数据
+
+   * Load calibration data：约 1 ms
+   * 包括 SPAD、temperature、offset、cross-talk calibration 数据
+
+6. 配置测距 profile
+
+   * Default mode
+   * High speed
+   * High accuracy
+   * Long range
+
+7. 启动测距
+
+   * Single ranging：启动一次，测完自动回 SW Standby
+   * Continuous ranging：连续测距，需要手动 stop
+   * Timed ranging：按 inter-measurement period 周期测距
+
+8. 数据获取
+
+   * polling：轮询测量状态
+   * interrupt：GPIO1 输出中断，表示新测量完成
+
+9. 初始化完成判断方式
+
+   * I2C reference registers 返回正确
+   * API init 返回成功
+   * 能进入 SW Standby
+   * 启动一次测距后能获得 valid measurement
+
+10. 初始化失败判断方式
+
+* I2C NACK
+* reference register 不匹配
+* boot timeout
+* API init timeout
+* ranging timeout
+* range status 返回 weak signal / no target / invalid 等错误状态
+
+### 工厂校准流程
+
+datasheet 推荐客户工厂阶段做一次 calibration：
+
+1. Device initialization and settings：约 40 ms
+2. Temperature calibration：约 40 ms
+3. SPAD calibration：约 10 ms
+4. Offset calibration：约 300 ms，推荐 10 cm 目标距离
+5. Cross-talk calibration：约 1 s
+
+温度变化超过初始校准温度约 8°C 时，温度相关校准需要重新执行。
+
+---
+
+## 5. ID / 自检 / 在线检测
+
+* 是否有 WHO_AM_I / CHIP_ID / JEDEC ID：
+
+  * datasheet 没有明确称为 WHO_AM_I
+  * 但给了 fresh reset 后可用于验证 I2C 的 reference registers
+* 读取命令或寄存器地址：
+
+  * `0xC0`
+  * `0xC1`
+  * `0xC2`
+  * `0x51`
+  * `0x61`
+* 期望返回值：
+
+  * `0xC0 -> 0xEE`
+  * `0xC1 -> 0xAA`
+  * `0xC2 -> 0x10`
+  * `0x51 -> 0x0099`
+  * `0x61 -> 0x0000`
+* self-test 支持：
+
+  * 这份 datasheet 未找到独立 self-test 描述
+* self-test 启动方式：
+
+  * 未给出
+* self-test 通过条件：
+
+  * 未给出
+* 推荐在线检测方式：
+
+  * I2C ACK
+  * 读取 `0xC0/0xC1/0xC2`
+  * 之后执行一次 single ranging，判断 range status 是否 valid
+
+---
+
+## 6. 寄存器表 / 命令表
+
+这份 datasheet 只给了 **I2C reference registers**，没有给完整底层寄存器表。ST 的意思很明显：VL53L0X 不适合只靠 datasheet 裸写寄存器，应该参考 VL53L0X API User Manual / 官方 API。
+
+### 名称：REFERENCE_REG_0
+
+* 地址/命令码：`0xC0`
+* 读/写属性：读，用于 I2C 验证；不建议写
+* bit 定义：未给出
+* 默认值：`0xEE`
+* 用途：fresh reset 后验证 I2C 通信
+* 注意事项：datasheet 只说用于 validate user I2C interface
+
+### 名称：REFERENCE_REG_1
+
+* 地址/命令码：`0xC1`
+* 读/写属性：读，用于 I2C 验证；不建议写
+* bit 定义：未给出
+* 默认值：`0xAA`
+* 用途：fresh reset 后验证 I2C 通信
+* 注意事项：无
+
+### 名称：REFERENCE_REG_2
+
+* 地址/命令码：`0xC2`
+* 读/写属性：读，用于 I2C 验证；不建议写
+* bit 定义：未给出
+* 默认值：`0x10`
+* 用途：fresh reset 后验证 I2C 通信
+* 注意事项：可当作 revision / model 相关参考值，但 datasheet 没直接命名为 CHIP_ID
+
+### 名称：REFERENCE_REG_3
+
+* 地址/命令码：`0x51`
+* 读/写属性：读，用于 I2C 验证；不建议写
+* bit 定义：未给出
+* 默认值：`0x0099`
+* 用途：fresh reset 后验证 I2C 通信
+* 注意事项：16-bit 值，MSB first
+
+### 名称：REFERENCE_REG_4
+
+* 地址/命令码：`0x61`
+* 读/写属性：读，用于 I2C 验证；不建议写
+* bit 定义：未给出
+* 默认值：`0x0000`
+* 用途：fresh reset 后验证 I2C 通信
+* 注意事项：16-bit 值，MSB first
+
+---
+
+## 7. 数据读取
+
+* 数据寄存器起始地址：本 datasheet 未给出底层 result register 地址
+* 数据长度：本 datasheet 未给出底层 raw data 长度
+* 数据顺序：
+
+  * I2C 多字节读写为地址递增
+  * 多字节值 MSB first
+* 大端/小端：I2C 多字节传输表现为大端 / MSB first
+* 是否有状态位/有效位：
+
+  * 有测距状态 / error code
+  * 但具体寄存器位定义不在本 datasheet 中
+* 是否需要等待 ready：
+
+  * 需要
+  * polling 模式：轮询 API 状态函数
+  * interrupt 模式：GPIO1 表示新数据可用
+* 原始数据类型：
+
+  * datasheet 没公开 raw register 格式
+  * API 输出测距距离，单位 mm
+* 换算公式：
+
+  * API 已输出距离值 `distance_mm`
+  * datasheet 没给 raw count 到 mm 的换算公式
+* 单位：mm
+* 量程：
+
+  * 标称最大可到 2 m
+  * 白色目标 indoor 典型 200 cm+
+  * 灰色 17% 目标 indoor 典型 80 cm
+  * 户外阴天能力下降
+* 溢出/无效数据判断：
+
+  * weak signal
+  * no target
+  * sigma check 不通过
+  * RIT check 不通过
+  * 具体 status code 需要 API manual
+
+---
+
+## 8. 中断 / 状态
+
+* 中断引脚名称：GPIO1
+* 中断触发方式：
+
+  * datasheet 只说明 GPIO1 在 new measurement available 时给主控中断
+  * 默认高/低电平、边沿触发方式未在本 datasheet 中展开
+* 中断输出类型：Open drain
+* 中断使能寄存器：本 datasheet 未给出
+* 中断状态寄存器：本 datasheet 未给出
+* 清除中断方式：本 datasheet 未给出，需要 API manual
+* data ready 标志：
+
+  * 通过 API polling 函数或 GPIO1 interrupt 判断
+* busy 标志：
+
+  * 本 datasheet 未给出底层 bit
+  * 逻辑上 ranging phase 未完成时为 busy
+* error 标志：
+
+  * 测距失败会有 error code
+  * 具体 code 定义在 API manual
+
+---
+
+## 9. 时序和超时
+
+* 上电稳定时间：
+
+  * datasheet 未给独立 AVDD ramp stable time
+  * 给出 FW boot 时间 tBOOT max = 1.2 ms
+* reset pulse 宽度：
+
+  * datasheet 未给 XSHUT low 最小 pulse width
+  * 工程建议：2 ms ~ 5 ms
+* reset 后等待：
+
+  * datasheet：tBOOT max 1.2 ms
+  * 工程建议 timeout：5 ms
+* 单次转换最大时间：
+
+  * 默认 timing budget = 33 ms
+  * 实际 range measurement 约 23 ms
+  * minimum range measurement period = 8 ms
+* busy 最大时间：
+
+  * 取决于 timing budget
+  * 默认建议驱动 timeout：50 ms
+* 写入/擦除/测量最大等待时间：
+
+  * 普通 I2C 写入：按 I2C 400 kHz 计算，无额外写入等待说明
+  * 初始化 settings：约 40 ms
+  * temperature calibration：约 40 ms
+  * SPAD calibration：约 10 ms
+  * offset calibration：约 300 ms
+  * cross-talk calibration：约 1 s
+* 推荐驱动 timeout：
+
+  * Boot timeout：5 ms
+  * I2C transaction timeout：5 ms ~ 10 ms
+  * API init timeout：100 ms
+  * Single ranging timeout：50 ms，若 timing budget 改大则同步放大
+  * Calibration timeout：2 s
+  * Continuous stop timeout：100 ms
+
+---
+
+## 10. 驱动 API 建议
+
+### `bool vl53l0x_init(vl53l0x_t *dev, const vl53l0x_bus_t *bus, const vl53l0x_config_t *config);`
+
+* 参数：
+
+  * `dev`：设备实例
+  * `bus`：I2C 读写函数、delay 函数、GPIO 控制函数
+  * `config`：I2C 地址、profile、timing budget、中断/轮询配置
+* 返回值：
+
+  * `true`：boot、I2C 检测、API init 成功
+  * `false`：I2C/ID/init 超时或失败
+
+### `bool vl53l0x_read_id(vl53l0x_t *dev, vl53l0x_id_t *id);`
+
+* 参数：
+
+  * `id`：保存 `0xC0/0xC1/0xC2/0x51/0x61` 读取值
+* 返回值：
+
+  * `true`：读取成功且参考值匹配
+  * `false`：读取失败或值不匹配
+
+### `bool vl53l0x_set_i2c_address(vl53l0x_t *dev, uint8_t new_addr_7bit);`
+
+* 参数：
+
+  * `new_addr_7bit`：新的 7-bit I2C 地址
+* 返回值：
+
+  * `true`：地址修改成功
+  * `false`：修改失败
+* 注意：
+
+  * 多 VL53L0X 共总线时，需要配合 XSHUT 逐个释放设备
+
+### `bool vl53l0x_configure(vl53l0x_t *dev, const vl53l0x_config_t *config);`
+
+* 参数：
+
+  * profile：default / high speed / high accuracy / long range
+  * timing budget
+  * inter-measurement period
+  * interrupt enable
+* 返回值：
+
+  * `true`：配置成功
+  * `false`：配置失败
+
+### `bool vl53l0x_start_single(vl53l0x_t *dev);`
+
+* 参数：设备实例
+* 返回值：
+
+  * `true`：single ranging 启动成功
+  * `false`：启动失败
+
+### `bool vl53l0x_start_continuous(vl53l0x_t *dev, uint32_t period_ms);`
+
+* 参数：
+
+  * `period_ms`：timed ranging 周期；0 可表示 continuous back-to-back
+* 返回值：
+
+  * `true`：启动成功
+  * `false`：启动失败
+
+### `bool vl53l0x_stop(vl53l0x_t *dev);`
+
+* 参数：设备实例
+* 返回值：
+
+  * `true`：停止成功并回到 standby
+  * `false`：停止超时或失败
+
+### `bool vl53l0x_data_ready(vl53l0x_t *dev, bool *ready);`
+
+* 参数：
+
+  * `ready`：是否有新测距结果
+* 返回值：
+
+  * `true`：状态读取成功
+  * `false`：I2C/API 失败
+
+### `bool vl53l0x_read_sample(vl53l0x_t *dev, vl53l0x_sample_t *sample);`
+
+* 参数：
+
+  * `sample->distance_mm`
+  * `sample->range_status`
+  * `sample->valid`
+  * `sample->timestamp_ms`
+* 返回值：
+
+  * `true`：读取流程成功
+  * `false`：通信失败或无有效数据
+
+### `bool vl53l0x_clear_interrupt(vl53l0x_t *dev);`
+
+* 参数：设备实例
+* 返回值：
+
+  * `true`：中断清除成功
+  * `false`：失败
+* 注意：具体清除寄存器本 datasheet 未给出，需要 API manual
+
+### `bool vl53l0x_calibrate(vl53l0x_t *dev, vl53l0x_calib_type_t type, vl53l0x_calib_data_t *data);`
+
+* 参数：
+
+  * `type`：SPAD / temperature / offset / crosstalk
+  * `data`：保存校准结果，供后续启动加载
+* 返回值：
+
+  * `true`：校准成功
+  * `false`：校准失败或超时
+
+---
+
+## 11. BoardDevice 绑定时需要用户确认的信息
+
+这个芯片准备用在 MSPM0G3507 工程里，建议拆成：
+
+```text
+ChipDrivers/vl53l0x.c
+ChipDrivers/vl53l0x.h
+BoardDevices/board_tof_xxx.c
+BoardDevices/board_tof_xxx.h
+```
+
+必须由板级确认的信息：
+
+* 使用哪个总线：
+
+  * MSPM0G3507 的哪一路 I2C
+  * SCL / SDA 具体引脚
+  * I2C 速率：100 kHz 还是 400 kHz
+
+* I2C 地址选择脚接法：
+
+  * VL53L0X 没有硬件 ADDR 脚
+  * 默认 7-bit 地址 `0x29`
+  * 多设备需要用 XSHUT 逐个启动后改软件地址
+
+* CS 引脚：
+
+  * 无
+
+* RESET 引脚：
+
+  * 对应 XSHUT
+  * 是否接到 MCU GPIO
+  * 若没有接 MCU，则是否上拉到 AVDD
+
+* INT 引脚：
+
+  * GPIO1 是否接 MCU
+  * 接哪个 GPIO / EXTI
+  * 是否使用中断模式
+
+* 电源使能脚：
+
+  * 板子是否有 VL53L0X 电源 EN
+  * 是否由 MSPM0 控制
+
+* IO 电平：
+
+  * I2C 上拉到 1.8 V、2.8 V 还是 3.3 V
+  * 是否使用裸芯片还是模块板
+  * 如果是裸芯片，3.3 V MSPM0 直连要重点确认 2V8 mode / level shifting
+
+* 安装方向/坐标轴方向：
+
+  * ToF 没有 IMU 那种 XYZ 轴，但要确认测距方向
+  * 例如 `tof_front`、`tof_down`、`tof_left`
+  * 是否有 cover glass
+  * 是否需要 cross-talk calibration
+
+* 采样率/量程默认值：
+
+  * default profile / high speed / high accuracy / long range
+  * timing budget 默认是否用 33 ms
+  * 连续测距周期，例如 20 Hz、30 Hz、10 Hz
+
+* 是否使用中断还是轮询：
+
+  * GPIO1 未接就只能 polling
+  * GPIO1 已接建议 interrupt + read_sample
+
+* 多设备实例命名：
+
+  * `tof_front`
+  * `tof_down`
+  * `tof_left`
+  * `tof_right`
+  * 每个实例的 XSHUT GPIO、I2C 地址、安装位置都要独立配置
+
+---
+
+## 12. 不确定项
+
+以下内容在你给的这份 datasheet 里没有完整展开，写裸寄存器驱动前必须继续查 **VL53L0X API User Manual / ST 官方 API 源码**：
+
+* 完整初始化寄存器序列
+* soft reset 命令 / 寄存器
+* 启动 single ranging 的底层寄存器地址和值
+* 启动 continuous ranging 的底层寄存器地址和值
+* result distance register 地址
+* range status register bit 定义
+* interrupt enable register
+* interrupt clear register
+* GPIO1 中断极性配置
+* data ready bit
+* busy bit
+* error code 完整含义
+* self-test 是否支持以及启动方式
+* I2C 地址修改寄存器
+* XSHUT low 最小 reset pulse 宽度
+* 3.3 V MCU 直连裸芯片时，默认 1V8 mode 到 2V8 mode 切换之前的 IO 兼容性细节
+* cover glass 下 cross-talk calibration 的具体流程和参数保存格式
+* offset calibration 的 API 参数格式
+* temperature calibration 数据结构
+* 多 VL53L0X 共总线时，地址修改后的掉电保持情况
+
+工程接入建议：当前 datasheet 更接近产品规格书，不是完整裸寄存器驱动手册。仓库中的
+`ChipDrivers/vl53l0x` 只实现 datasheet 明确给出的 I2C reference register 在线检测和地址修改入口；
+完整单次/连续测距需要后续接入 ST 官方 API、API User Manual 或已验证的初始化寄存器表。
+
+当前 EmbedForge 分层接入方式：
+
+* `Drivers/ef_i2c`：只封装 MSPM0 I2C0 同步传输，不知道 VL53L0X 地址或寄存器。
+* `ChipDrivers/vl53l0x`：只认识 VL53L0X 寄存器和抽象 I2C bus，不绑定 PA0/PA1 或 `EF_I2C_TOF`。
+* `BoardDevices/board_tof`：绑定板级实例 `tof.front`，使用 `EF_I2C_TOF`、默认 7-bit 地址 `0x29`、轮询模式。
+* `App`：只包含 `board_tof.h`，通过 `board_tof_init()` 和 `board_tof_read_id()` 显示在线状态。
+
+文档注意项：
+
+* `0x52` 是 8-bit write address，项目代码统一使用 7-bit 地址 `0x29`。
+* 当前 YAML 中 XSHUT 和 GPIO1/INT 仍是 `unassigned`，所以 BoardDevice 不能做硬复位或中断读取。
+* 如果后续接多个 VL53L0X，需要先给每个 XSHUT 分配独立 GPIO，再由 BoardDevices 逐个释放并改 I2C 地址。

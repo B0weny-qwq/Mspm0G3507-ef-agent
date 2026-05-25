@@ -12,7 +12,13 @@
 extern "C" {
 #endif
 
+/**
+ * @brief 初始化驱动层。
+ */
 void ef_drivers_init(void);
+/**
+ * @brief 驱动层周期服务函数。
+ */
 void ef_drivers_service(void);
 
 #ifdef __cplusplus
