@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
+/* 日志服务：格式化输出到控制台，并支持错误日志旁路显示。 */
+
 #define EF_LOG_MESSAGE_MAX 160U
 
 static ef_log_level_t g_log_level = EF_LOG_ERROR;
@@ -14,6 +16,7 @@ static ef_log_time_fn_t g_time_fn;
 static ef_log_sink_t g_error_sink;
 static void *g_error_sink_ctx;
 
+/* 把日志级别映射成单字符前缀。 */
 static char ef_log_level_char(ef_log_level_t level)
 {
     switch (level) {
@@ -33,6 +36,7 @@ static char ef_log_level_char(ef_log_level_t level)
     }
 }
 
+/* 初始化日志模块并设置默认时间源。 */
 void ef_log_init(ef_log_level_t level)
 {
     board_console_init();
@@ -42,27 +46,32 @@ void ef_log_init(ef_log_level_t level)
     g_log_level = level;
 }
 
+/* 更新当前日志过滤级别。 */
 void ef_log_set_level(ef_log_level_t level)
 {
     g_log_level = level;
 }
 
+/* 读取当前日志过滤级别。 */
 ef_log_level_t ef_log_get_level(void)
 {
     return g_log_level;
 }
 
+/* 设置日志时间戳来源。 */
 void ef_log_set_time_fn(ef_log_time_fn_t time_fn)
 {
     g_time_fn = time_fn;
 }
 
+/* 设置错误日志的旁路输出回调。 */
 void ef_log_set_error_sink(ef_log_sink_t sink, void *ctx)
 {
     g_error_sink = sink;
     g_error_sink_ctx = ctx;
 }
 
+/* 按统一格式输出一条日志。 */
 void ef_log_write(ef_log_level_t level, const char *tag, const char *fmt, ...)
 {
     char line[EF_LOG_MESSAGE_MAX];

@@ -18,9 +18,9 @@ typedef struct {
 } board_optical_flow_id_t;
 
 /**
- * @brief 板级光流采样值。
+ * @brief 板级光流采样结果。
  *
- * App 层通过该结构拿到 PMW3901 的光流增量和质量信息，不需要知道 SPI0、片选引脚或芯片寄存器。
+ * 封装 PMW3901 的位移增量和质量统计信息。
  */
 typedef struct {
     int16_t delta_x;
@@ -36,39 +36,34 @@ typedef struct {
 /**
  * @brief 初始化板级光流传感器。
  *
- * 当前板级实例绑定到 PMW3901、SPI0 传感器总线和 PA16 手动片选。函数会阻塞完成 Product_ID
- * 校验和当前文档可见的性能优化寄存器写入。
- *
- * @return true 初始化成功。
- * @return false 设备未响应或底层配置失败。
+ * @return `true` 初始化成功。
+ * @return `false` 初始化失败。
  */
 bool board_optical_flow_init(void);
 
 /**
- * @brief 查询板级光流传感器是否已经初始化成功。
+ * @brief 查询板级光流传感器是否就绪。
  *
- * @return true 光流可读。
- * @return false 光流尚未初始化成功。
+ * @return `true` 设备可用。
+ * @return `false` 设备不可用。
  */
 bool board_optical_flow_is_ready(void);
 
 /**
- * @brief 读取 PMW3901 芯片 ID。
+ * @brief 读取光流芯片 ID。
  *
- * @param id 输出芯片 ID，不能为 NULL。
- * @return true 读取成功。
- * @return false 参数无效或设备不可用。
+ * @param id 输出 ID 缓冲区。
+ * @return `true` 读取成功。
+ * @return `false` 读取失败。
  */
 bool board_optical_flow_read_id(board_optical_flow_id_t *id);
 
 /**
- * @brief 读取板级光流一帧采样。
+ * @brief 读取一帧光流采样结果。
  *
- * 函数为阻塞式 SPI 读取。App 层不直接访问 SPI 总线、GPIO 片选或芯片寄存器。
- *
- * @param sample 输出采样，不能为 NULL。
- * @return true 读取成功。
- * @return false 参数无效或光流初始化失败。
+ * @param sample 输出采样缓冲区。
+ * @return `true` 读取成功。
+ * @return `false` 读取失败。
  */
 bool board_optical_flow_read(board_optical_flow_sample_t *sample);
 

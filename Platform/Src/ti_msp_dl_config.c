@@ -37,18 +37,25 @@
  *  DO NOT EDIT - This file is generated for the LP_MSPM0G3507
  *  by the SysConfig tool.
  */
+/*
+ *  中文说明：
+ *  1. 本文件实现 SysConfig 自动生成的 DriverLib 初始化流程。
+ *  2. 工程只在这里补中文说明，尽量不改动底层配置逻辑，避免后续重新生成时
+ *     产生行为偏差。
+ */
 
 #include "ti_msp_dl_config.h"
 
-/*
- *  ======== SYSCFG_DL_init ========
- *  Perform any initialization needed before using any board APIs
+/**
+ * @brief 执行整板 DriverLib 初始化入口。
+ *
+ * 顺序包括：外设上电、GPIO 复用、系统时钟、通信外设、PWM 和 MCAN。
  */
 SYSCONFIG_WEAK void SYSCFG_DL_init(void)
 {
     SYSCFG_DL_initPower();
     SYSCFG_DL_GPIO_init();
-    /* Module-Specific Initializations*/
+    /* 继续执行具体模块初始化。 */
     SYSCFG_DL_SYSCTL_init();
     SYSCFG_DL_UART_DEBUG_init();
     SYSCFG_DL_SPI_BOARD_init();
@@ -58,6 +65,9 @@ SYSCONFIG_WEAK void SYSCFG_DL_init(void)
     SYSCFG_DL_MCAN0_init();
 }
 
+/**
+ * @brief 复位并上电启用本工程实际使用到的片上模块。
+ */
 SYSCONFIG_WEAK void SYSCFG_DL_initPower(void)
 {
     DL_GPIO_reset(GPIOA);
@@ -70,6 +80,8 @@ SYSCONFIG_WEAK void SYSCFG_DL_initPower(void)
     DL_Timer_reset(PWM_TIMA1_INST);
     DL_Timer_reset(PWM_TIMG6_INST);
     DL_Timer_reset(PWM_TIMG12_INST);
+    DL_Timer_reset(ENCODER1_CAPTURE_INST);
+    DL_Timer_reset(ENCODER2_CAPTURE_INST);
     DL_MCAN_reset(MCAN0_INST);
 
     DL_GPIO_enablePower(GPIOA);
@@ -82,21 +94,28 @@ SYSCONFIG_WEAK void SYSCFG_DL_initPower(void)
     DL_Timer_enablePower(PWM_TIMA1_INST);
     DL_Timer_enablePower(PWM_TIMG6_INST);
     DL_Timer_enablePower(PWM_TIMG12_INST);
+    DL_Timer_enablePower(ENCODER1_CAPTURE_INST);
+    DL_Timer_enablePower(ENCODER2_CAPTURE_INST);
     DL_MCAN_enablePower(MCAN0_INST);
     delay_cycles(POWER_STARTUP_DELAY);
 }
 
+/**
+ * @brief 配置管脚复用、输入输出模式以及片选脚默认电平。
+ */
 SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
 {
-
+    /* 外部高速晶振引脚切到模拟功能。 */
     DL_GPIO_initPeripheralAnalogFunction(GPIO_HFXIN_IOMUX);
     DL_GPIO_initPeripheralAnalogFunction(GPIO_HFXOUT_IOMUX);
 
+    /* 调试串口 UART0。 */
     DL_GPIO_initPeripheralOutputFunction(
         GPIO_UART_DEBUG_IOMUX_TX, GPIO_UART_DEBUG_IOMUX_TX_FUNC);
     DL_GPIO_initPeripheralInputFunction(
         GPIO_UART_DEBUG_IOMUX_RX, GPIO_UART_DEBUG_IOMUX_RX_FUNC);
 
+    /* 板载 SPI1：LCD 与外部 Flash。 */
     DL_GPIO_initPeripheralInputFunction(
         GPIO_SPI_BOARD_IOMUX_POCI, GPIO_SPI_BOARD_IOMUX_POCI_FUNC);
     DL_GPIO_initPeripheralOutputFunction(
@@ -104,6 +123,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     DL_GPIO_initPeripheralOutputFunction(
         GPIO_SPI_BOARD_IOMUX_SCLK, GPIO_SPI_BOARD_IOMUX_SCLK_FUNC);
 
+    /* 传感器 SPI0：IMU 和光流。 */
     DL_GPIO_initPeripheralInputFunction(
         GPIO_SPI_SENSOR_IOMUX_POCI, GPIO_SPI_SENSOR_IOMUX_POCI_FUNC);
     DL_GPIO_initPeripheralOutputFunction(
@@ -111,6 +131,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     DL_GPIO_initPeripheralOutputFunction(
         GPIO_SPI_SENSOR_IOMUX_SCLK, GPIO_SPI_SENSOR_IOMUX_SCLK_FUNC);
 
+    /* I2C0：ToF 传感器，保持高阻输入特性。 */
     DL_GPIO_initPeripheralInputFunctionFeatures(GPIO_I2C_TOF_IOMUX_SDA,
         GPIO_I2C_TOF_IOMUX_SDA_FUNC, DL_GPIO_INVERSION_DISABLE,
         DL_GPIO_RESISTOR_NONE, DL_GPIO_HYSTERESIS_DISABLE,
@@ -122,6 +143,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     DL_GPIO_enableHiZ(GPIO_I2C_TOF_IOMUX_SDA);
     DL_GPIO_enableHiZ(GPIO_I2C_TOF_IOMUX_SCL);
 
+    /* PWM 输出引脚。 */
     DL_GPIO_initPeripheralOutputFunction(GPIO_PWM3_IOMUX, GPIO_PWM3_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_PWM4_IOMUX, GPIO_PWM4_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_PWM7_IOMUX, GPIO_PWM7_IOMUX_FUNC);
@@ -130,38 +152,47 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     DL_GPIO_initPeripheralOutputFunction(GPIO_MOTOR1_PWM_IOMUX, GPIO_MOTOR1_PWM_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_MOTOR2_PWM_IOMUX, GPIO_MOTOR2_PWM_IOMUX_FUNC);
 
+    /* 编码器 step 输入捕获脚，dir 方向脚保持普通 GPIO 输入。 */
+    DL_GPIO_initPeripheralInputFunction(
+        GPIO_ENCODERS_ENCODER1_STEP_IOMUX, GPIO_ENCODERS_ENCODER1_STEP_IOMUX_FUNC);
+    DL_GPIO_initPeripheralInputFunction(
+        GPIO_ENCODERS_ENCODER2_STEP_IOMUX, GPIO_ENCODERS_ENCODER2_STEP_IOMUX_FUNC);
+    DL_GPIO_initDigitalInputFeatures(GPIO_ENCODERS_ENCODER1_DIR_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
+        DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
+    DL_GPIO_initDigitalInputFeatures(GPIO_ENCODERS_ENCODER2_DIR_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
+        DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
+
+    /* CANFD0 收发引脚。 */
     DL_GPIO_initPeripheralOutputFunction(
         GPIO_MCAN0_IOMUX_CAN_TX, GPIO_MCAN0_IOMUX_CAN_TX_FUNC);
     DL_GPIO_initPeripheralInputFunction(
         GPIO_MCAN0_IOMUX_CAN_RX, GPIO_MCAN0_IOMUX_CAN_RX_FUNC);
 
+    /* 普通数字输出脚：LED、片选、LCD 控制。 */
     DL_GPIO_initDigitalOutput(GPIO_LEDS_USER_LED_1_IOMUX);
-
     DL_GPIO_initDigitalOutput(GPIO_LEDS_USER_TEST_IOMUX);
-
     DL_GPIO_initDigitalOutput(GPIO_BOARD_DEVICES_FLASH_CS_IOMUX);
-
     DL_GPIO_initDigitalOutput(GPIO_BOARD_DEVICES_LCD_RES_IOMUX);
-
     DL_GPIO_initDigitalOutput(GPIO_BOARD_DEVICES_LCD_DC_IOMUX);
-
     DL_GPIO_initDigitalOutput(GPIO_BOARD_DEVICES_LCD_CS_IOMUX);
-
     DL_GPIO_initDigitalOutput(GPIO_BOARD_DEVICES_LCD_BLK_IOMUX);
-
     DL_GPIO_initDigitalOutput(GPIO_SENSOR_DEVICES_IMU_CS_IOMUX);
-
     DL_GPIO_initDigitalOutput(GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_IOMUX);
 
+    /* BOOT 键输入，上拉并开启迟滞。 */
     DL_GPIO_initDigitalInputFeatures(GPIO_BUTTONS_BOOT_IOMUX,
         DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_PULL_UP,
         DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
 
+    /* 默认拉低 LED、LCD DC 和背光。 */
     DL_GPIO_clearPins(GPIO_LEDS_PORT, GPIO_LEDS_USER_LED_1_PIN |
         GPIO_LEDS_USER_TEST_PIN |
         GPIO_BOARD_DEVICES_LCD_DC_PIN |
         GPIO_BOARD_DEVICES_LCD_BLK_PIN);
 
+    /* 默认释放片选与复位脚。 */
     DL_GPIO_setPins(GPIO_BOARD_DEVICES_PORT,
         GPIO_BOARD_DEVICES_FLASH_CS_PIN |
         GPIO_BOARD_DEVICES_LCD_RES_PIN |
@@ -171,6 +202,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
         GPIO_SENSOR_DEVICES_IMU_CS_PIN |
         GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN);
 
+    /* 打开对应 GPIO 输出缓冲。 */
     DL_GPIO_enableOutput(GPIO_LEDS_PORT, GPIO_LEDS_USER_LED_1_PIN |
         GPIO_LEDS_USER_TEST_PIN |
         GPIO_BOARD_DEVICES_FLASH_CS_PIN |
@@ -185,7 +217,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
 
 }
 
-
+/* SYSPLL 配置：由外部高速晶振驱动，输出 80 MHz 主时钟。 */
 static const DL_SYSCTL_SYSPLLConfig gSYSPLLConfig = {
     .inputFreq = DL_SYSCTL_SYSPLL_INPUT_FREQ_32_48_MHZ,
     .rDivClk2x = 1,
@@ -200,13 +232,16 @@ static const DL_SYSCTL_SYSPLLConfig gSYSPLLConfig = {
     .pDiv = DL_SYSCTL_SYSPLL_PDIV_1
 };
 
+/**
+ * @brief 初始化系统时钟树与 Flash 等待状态。
+ */
 SYSCONFIG_WEAK void SYSCFG_DL_SYSCTL_init(void)
 {
     DL_SYSCTL_setBORThreshold(DL_SYSCTL_BOR_THRESHOLD_LEVEL_0);
     DL_SYSCTL_setFlashWaitState(DL_SYSCTL_FLASH_WAIT_STATE_2);
 
 	DL_SYSCTL_setSYSOSCFreq(DL_SYSCTL_SYSOSC_FREQ_BASE);
-	/* Set default configuration */
+	/* 先回到默认状态，再启用 HFXT 和 SYSPLL。 */
 	DL_SYSCTL_disableHFXT();
 	DL_SYSCTL_disableSYSPLL();
     DL_SYSCTL_setHFCLKSourceHFXTParams(DL_SYSCTL_HFXT_RANGE_32_48_MHZ, 10, true);
@@ -216,11 +251,13 @@ SYSCONFIG_WEAK void SYSCFG_DL_SYSCTL_init(void)
 
 }
 
+/* UART0 时钟来自总线时钟，不再分频。 */
 static const DL_UART_Main_ClockConfig gUART_DEBUGClockConfig = {
     .clockSel = DL_UART_MAIN_CLOCK_BUSCLK,
     .divideRatio = DL_UART_MAIN_CLOCK_DIVIDE_RATIO_1
 };
 
+/* UART0 使用最常见的 8N1 全双工格式。 */
 static const DL_UART_Main_Config gUART_DEBUGConfig = {
     .mode = DL_UART_MAIN_MODE_NORMAL,
     .direction = DL_UART_MAIN_DIRECTION_TX_RX,
@@ -230,6 +267,9 @@ static const DL_UART_Main_Config gUART_DEBUGConfig = {
     .stopBits = DL_UART_MAIN_STOP_BITS_ONE
 };
 
+/**
+ * @brief 初始化调试串口 UART0。
+ */
 SYSCONFIG_WEAK void SYSCFG_DL_UART_DEBUG_init(void)
 {
     DL_UART_Main_setClockConfig(
@@ -243,6 +283,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_UART_DEBUG_init(void)
     DL_UART_Main_enable(UART_DEBUG_INST);
 }
 
+/* SPI1：板载高带宽总线，模式 0，8 位数据宽度。 */
 static const DL_SPI_Config gSPI_BOARDConfig = {
     .mode = DL_SPI_MODE_CONTROLLER,
     .frameFormat = DL_SPI_FRAME_FORMAT_MOTO3_POL0_PHA0,
@@ -252,11 +293,15 @@ static const DL_SPI_Config gSPI_BOARDConfig = {
     .chipSelectPin = DL_SPI_CHIP_SELECT_NONE
 };
 
+/* SPI1 时钟直接来自总线时钟。 */
 static const DL_SPI_ClockConfig gSPI_BOARDClockConfig = {
     .clockSel = DL_SPI_CLOCK_BUSCLK,
     .divideRatio = DL_SPI_CLOCK_DIVIDE_RATIO_1
 };
 
+/**
+ * @brief 初始化板载 SPI1 外设。
+ */
 SYSCONFIG_WEAK void SYSCFG_DL_SPI_BOARD_init(void)
 {
     DL_SPI_setClockConfig(SPI_BOARD_INST, (DL_SPI_ClockConfig *) &gSPI_BOARDClockConfig);
@@ -267,6 +312,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_SPI_BOARD_init(void)
     DL_SPI_enable(SPI_BOARD_INST);
 }
 
+/* SPI0：传感器总线，模式 3。 */
 static const DL_SPI_Config gSPI_SENSORConfig = {
     .mode = DL_SPI_MODE_CONTROLLER,
     .frameFormat = DL_SPI_FRAME_FORMAT_MOTO3_POL1_PHA1,
@@ -276,11 +322,15 @@ static const DL_SPI_Config gSPI_SENSORConfig = {
     .chipSelectPin = DL_SPI_CHIP_SELECT_NONE
 };
 
+/* SPI0 时钟同样直接取总线时钟。 */
 static const DL_SPI_ClockConfig gSPI_SENSORClockConfig = {
     .clockSel = DL_SPI_CLOCK_BUSCLK,
     .divideRatio = DL_SPI_CLOCK_DIVIDE_RATIO_1
 };
 
+/**
+ * @brief 初始化传感器 SPI0 外设。
+ */
 SYSCONFIG_WEAK void SYSCFG_DL_SPI_SENSOR_init(void)
 {
     DL_SPI_setClockConfig(SPI_SENSOR_INST, (DL_SPI_ClockConfig *) &gSPI_SENSORClockConfig);
@@ -291,11 +341,15 @@ SYSCONFIG_WEAK void SYSCFG_DL_SPI_SENSOR_init(void)
     DL_SPI_enable(SPI_SENSOR_INST);
 }
 
+/* I2C0 使用总线时钟 1 分频。 */
 static const DL_I2C_ClockConfig gI2C_TOFClockConfig = {
     .clockSel = DL_I2C_CLOCK_BUSCLK,
     .divideRatio = DL_I2C_CLOCK_DIVIDE_1,
 };
 
+/**
+ * @brief 初始化 ToF 传感器所用的 I2C0。
+ */
 SYSCONFIG_WEAK void SYSCFG_DL_I2C_TOF_init(void)
 {
     DL_I2C_setClockConfig(I2C_TOF_INST, (DL_I2C_ClockConfig *) &gI2C_TOFClockConfig);
@@ -308,12 +362,14 @@ SYSCONFIG_WEAK void SYSCFG_DL_I2C_TOF_init(void)
     DL_I2C_enableController(I2C_TOF_INST);
 }
 
+/* PWM 定时器统一使用总线时钟，不再额外预分频。 */
 static const DL_Timer_ClockConfig gPWMClockConfig = {
     .clockSel = DL_TIMER_CLOCK_BUSCLK,
     .divideRatio = DL_TIMER_CLOCK_DIVIDE_1,
     .prescale = 0U,
 };
 
+/* 复用的 PWM 定时器初始化模板。 */
 static void SYSCFG_DL_PWM_init_timer(GPTIMER_Regs *timer, uint32_t period, bool four_cc,
     uint32_t output_mask, DL_TIMER_CZC zero_ctl, DL_TIMER_CAC advance_ctl, DL_TIMER_CLC load_ctl)
 {
@@ -328,6 +384,7 @@ static void SYSCFG_DL_PWM_init_timer(GPTIMER_Regs *timer, uint32_t period, bool 
     DL_Timer_initPWMMode(timer, &config);
     DL_Timer_setCounterControl(timer, zero_ctl, advance_ctl, load_ctl);
 
+    /* 先统一把比较通道输出初始化为低电平且占空比为 0。 */
     for (uint32_t channel = 0U; channel < (four_cc ? 4U : 2U); channel++) {
         DL_TIMER_CC_INDEX index = (DL_TIMER_CC_INDEX) channel;
 
@@ -341,6 +398,9 @@ static void SYSCFG_DL_PWM_init_timer(GPTIMER_Regs *timer, uint32_t period, bool 
     DL_Timer_setCCPDirection(timer, output_mask);
 }
 
+/**
+ * @brief 初始化各路 PWM 定时器。
+ */
 SYSCONFIG_WEAK void SYSCFG_DL_PWM_init(void)
 {
     SYSCFG_DL_PWM_init_timer(PWM_TIMA0_INST, PWM_TIMA0_PERIOD, true,
@@ -357,11 +417,13 @@ SYSCONFIG_WEAK void SYSCFG_DL_PWM_init(void)
         DL_TIMER_CZC_CCCTL0_ZCOND, DL_TIMER_CAC_CCCTL0_ACOND, DL_TIMER_CLC_CCCTL0_LCOND);
 }
 
+/* MCAN0 使用 HFCLK 作为功能时钟。 */
 static const DL_MCAN_ClockConfig gMCAN0ClockConf = {
     .clockSel = DL_MCAN_FCLK_HFCLK,
     .divider = DL_MCAN_FCLK_DIV_1,
 };
 
+/* MCAN0 基本工作模式：经典 CAN、非 BRS。 */
 static const DL_MCAN_InitParams gMCAN0InitParams = {
     .fdMode = false,
     .brsEnable = false,
@@ -378,6 +440,7 @@ static const DL_MCAN_InitParams gMCAN0InitParams = {
     .tdcEnable = false,
 };
 
+/* MCAN0 全局过滤与超时配置。 */
 static const DL_MCAN_ConfigParams gMCAN0ConfigParams = {
     .monEnable = false,
     .asmEnable = false,
@@ -392,6 +455,7 @@ static const DL_MCAN_ConfigParams gMCAN0ConfigParams = {
     .filterConfig.anfs = 1U,
 };
 
+/* MCAN0 消息 RAM 区域布局。 */
 static const DL_MCAN_MsgRAMConfigParams gMCAN0MsgRAMConfigParams = {
     .flssa = MCAN0_INST_MCAN_STD_ID_FILT_START_ADDR,
     .lss = MCAN0_INST_MCAN_STD_ID_FILTER_NUM,
@@ -419,6 +483,7 @@ static const DL_MCAN_MsgRAMConfigParams gMCAN0MsgRAMConfigParams = {
     .rxFIFO1ElemSize = DL_MCAN_ELEM_SIZE_8BYTES,
 };
 
+/* MCAN0 标称位时序。 */
 static const DL_MCAN_BitTimingParams gMCAN0BitTimes = {
     .nomRatePrescalar = 3U,
     .nomTimeSeg1 = 31U,
@@ -430,6 +495,9 @@ static const DL_MCAN_BitTimingParams gMCAN0BitTimes = {
     .dataSynchJumpWidth = 0U,
 };
 
+/**
+ * @brief 初始化 MCAN0 控制器并切入正常工作模式。
+ */
 SYSCONFIG_WEAK void SYSCFG_DL_MCAN0_init(void)
 {
     DL_MCAN_RevisionId revision;
@@ -438,9 +506,11 @@ SYSCONFIG_WEAK void SYSCFG_DL_MCAN0_init(void)
     DL_MCAN_setClockConfig(MCAN0_INST, (DL_MCAN_ClockConfig *) &gMCAN0ClockConf);
     DL_MCAN_getRevisionId(MCAN0_INST, &revision);
 
+    /* 等待消息 RAM 自检完成。 */
     while (!DL_MCAN_isMemInitDone(MCAN0_INST)) {
     }
 
+    /* 进入软件初始化态后再装载配置。 */
     DL_MCAN_setOpMode(MCAN0_INST, DL_MCAN_OPERATION_MODE_SW_INIT);
     while (DL_MCAN_getOpMode(MCAN0_INST) != DL_MCAN_OPERATION_MODE_SW_INIT) {
     }
@@ -451,6 +521,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_MCAN0_init(void)
     (void) DL_MCAN_msgRAMConfig(MCAN0_INST, (DL_MCAN_MsgRAMConfigParams *) &gMCAN0MsgRAMConfigParams);
     DL_MCAN_setExtIDAndMask(MCAN0_INST, MCAN0_INST_MCAN_EXT_ID_AND_MASK);
 
+    /* 切回正常模式。 */
     DL_MCAN_setOpMode(MCAN0_INST, DL_MCAN_OPERATION_MODE_NORMAL);
     while (DL_MCAN_getOpMode(MCAN0_INST) != DL_MCAN_OPERATION_MODE_NORMAL) {
     }

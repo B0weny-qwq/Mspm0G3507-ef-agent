@@ -1,4 +1,5 @@
 build/
+graphify-out/
 *.elf
 *.hex
 *.bin

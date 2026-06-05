@@ -5,6 +5,9 @@
 extern "C" {
 #endif
 
+/**
+ * @brief 组件层占位函数。
+ */
 void ef_component_placeholder(void);
 
 #ifdef __cplusplus

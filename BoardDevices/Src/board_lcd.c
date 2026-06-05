@@ -7,6 +7,8 @@
 #include "ef_spi.h"
 #include "st7789.h"
 
+/* 板级 LCD 适配层：在单色帧缓冲上维护脏矩形，并批量刷新到 ST7789。 */
+
 #define BOARD_LCD_FB_BYTES_PER_ROW ((BOARD_LCD_WIDTH + 7U) / 8U)
 #define BOARD_LCD_DIRTY_MAX_RECTS 8U
 
@@ -75,6 +77,7 @@ static const uint8_t g_font5x7[][5] = {
     {0x08U, 0x04U, 0x08U, 0x10U, 0x08U},
 };
 
+/* 控制 LCD 片选，并确保与外部 Flash 不冲突。 */
 static void board_lcd_select(bool selected, void *ctx)
 {
     (void) ctx;
@@ -82,35 +85,41 @@ static void board_lcd_select(bool selected, void *ctx)
     ef_gpio_write(EF_GPIO_LCD_CS, !selected);
 }
 
+/* 切换 LCD 数据/命令模式。 */
 static void board_lcd_dc(bool data_mode, void *ctx)
 {
     (void) ctx;
     ef_gpio_write(EF_GPIO_LCD_DC, data_mode);
 }
 
+/* 控制 LCD 硬件复位脚。 */
 static void board_lcd_reset(bool active, void *ctx)
 {
     (void) ctx;
     ef_gpio_write(EF_GPIO_LCD_RES, !active);
 }
 
+/* 控制 LCD 背光脚。 */
 static void board_lcd_backlight(bool on, void *ctx)
 {
     (void) ctx;
     ef_gpio_write(EF_GPIO_LCD_BLK, on);
 }
 
+/* 通过板级 SPI 总线写入一段字节流。 */
 static void board_lcd_write(const uint8_t *data, size_t len, void *ctx)
 {
     (void) ctx;
     ef_spi_write(EF_SPI_BOARD, data, len);
 }
 
+/* 当前单色帧缓冲里，非黑色都视为“亮像素”。 */
 static bool board_lcd_color_is_on(uint16_t color)
 {
     return color != BOARD_LCD_COLOR_BLACK;
 }
 
+/* 判断两个脏矩形是否相交或接触。 */
 static bool board_lcd_rects_touch_or_overlap(const board_lcd_dirty_rect_t *a, const board_lcd_dirty_rect_t *b)
 {
     const uint16_t ax1 = (uint16_t) (a->x + a->w);
@@ -121,6 +130,7 @@ static bool board_lcd_rects_touch_or_overlap(const board_lcd_dirty_rect_t *a, co
     return !((ax1 < b->x) || (bx1 < a->x) || (ay1 < b->y) || (by1 < a->y));
 }
 
+/* 将两个脏矩形合并成一个更大的包围盒。 */
 static void board_lcd_rect_merge(board_lcd_dirty_rect_t *dst, const board_lcd_dirty_rect_t *src)
 {
     const uint16_t x0 = (dst->x < src->x) ? dst->x : src->x;
@@ -138,6 +148,7 @@ static void board_lcd_rect_merge(board_lcd_dirty_rect_t *dst, const board_lcd_di
     dst->h = (uint16_t) (y1 - y0);
 }
 
+/* 标记帧缓冲中被修改的矩形区域。 */
 static void board_lcd_mark_dirty(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
     board_lcd_dirty_rect_t rect;
@@ -178,6 +189,7 @@ static void board_lcd_mark_dirty(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
     g_lcd_dirty_count = 1U;
 }
 
+/* 修改帧缓冲中的单个像素，并返回是否发生变化。 */
 static bool board_lcd_set_fb_pixel(uint16_t x, uint16_t y, bool on)
 {
     const uint8_t mask = (uint8_t) (0x80U >> (x & 7U));
@@ -196,6 +208,7 @@ static bool board_lcd_set_fb_pixel(uint16_t x, uint16_t y, bool on)
     return true;
 }
 
+/* 读取帧缓冲中的单个像素状态。 */
 static bool board_lcd_get_fb_pixel(uint16_t x, uint16_t y)
 {
     const uint8_t mask = (uint8_t) (0x80U >> (x & 7U));
@@ -203,6 +216,7 @@ static bool board_lcd_get_fb_pixel(uint16_t x, uint16_t y)
     return (g_lcd_fb[y][x >> 3U] & mask) != 0U;
 }
 
+/* 初始化板级 LCD。 */
 bool board_lcd_init(void)
 {
     const st7789_bus_t bus = {
@@ -229,6 +243,7 @@ bool board_lcd_init(void)
     return g_lcd_ready;
 }
 
+/* 设置背光状态。 */
 void board_lcd_set_backlight(bool on)
 {
     if (!g_lcd_ready) {
@@ -239,6 +254,7 @@ void board_lcd_set_backlight(bool on)
     st7789_set_backlight(&g_lcd, on);
 }
 
+/* 整屏填充指定颜色。 */
 void board_lcd_fill(uint16_t color)
 {
     const bool on = board_lcd_color_is_on(color);
@@ -257,6 +273,7 @@ void board_lcd_fill(uint16_t color)
     board_lcd_mark_dirty(0U, 0U, BOARD_LCD_WIDTH, BOARD_LCD_HEIGHT);
 }
 
+/* 填充帧缓冲中的指定矩形区域。 */
 void board_lcd_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color)
 {
     const bool on = board_lcd_color_is_on(color);
@@ -287,6 +304,7 @@ void board_lcd_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_
     }
 }
 
+/* 绘制单个像素。 */
 void board_lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color)
 {
     if (!g_lcd_ready) {
@@ -298,6 +316,7 @@ void board_lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color)
     }
 }
 
+/* 使用 5x7 点阵字体绘制单个字符。 */
 void board_lcd_draw_char(uint16_t x, uint16_t y, char ch, uint16_t fg, uint16_t bg, uint8_t scale)
 {
     const uint8_t *glyph;
@@ -327,6 +346,7 @@ void board_lcd_draw_char(uint16_t x, uint16_t y, char ch, uint16_t fg, uint16_t 
     board_lcd_fill_rect((uint16_t) (x + (5U * draw_scale)), y, draw_scale, (uint16_t) (7U * draw_scale), bg);
 }
 
+/* 顺序绘制字符串，支持换行。 */
 void board_lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t fg, uint16_t bg, uint8_t scale)
 {
     const uint8_t draw_scale = (scale == 0U) ? 1U : scale;
@@ -348,6 +368,7 @@ void board_lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t fg
     }
 }
 
+/* 把脏矩形对应的帧缓冲内容批量刷新到 LCD。 */
 void board_lcd_service(void)
 {
     board_lcd_dirty_rect_t dirty[BOARD_LCD_DIRTY_MAX_RECTS];
@@ -380,11 +401,13 @@ void board_lcd_service(void)
     }
 }
 
+/* 当前实现尚未单独统计 LCD 硬件 FPS。 */
 uint16_t board_lcd_get_fps(void)
 {
     return 0U;
 }
 
+/* 清空帧缓冲并重置显示场景。 */
 void board_lcd_reset_scene(void)
 {
     board_lcd_fill(BOARD_LCD_COLOR_BLACK);

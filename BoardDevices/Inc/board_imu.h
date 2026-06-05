@@ -9,10 +9,9 @@ extern "C" {
 #endif
 
 /**
- * @brief 板级 IMU 采样值。
+ * @brief 板级 IMU 采样结果。
  *
- * App 层通过该结构拿到原始值和常用整数单位换算值，不需要知道 SPI0、片选引脚或 LSM6DSR 寄存器。
- * accel_ug 单位为 ug，gyro_udps 单位为 micro dps，temperature_mdeg_c 单位为 0.001 摄氏度。
+ * 同时提供原始寄存器值和常用工程单位换算值。
  */
 typedef struct {
     int16_t accel_raw[3];
@@ -27,37 +26,34 @@ typedef struct {
 /**
  * @brief 初始化板级 IMU。
  *
- * 当前板级实例绑定到 LSM6DSR、SPI0 传感器总线和 PA17 手动片选。函数会阻塞完成 WHO_AM_I
- * 校验和基础采样配置。
+ * 当前板级实例绑定到 LSM6DSR。
  *
- * @return true 初始化成功。
- * @return false 设备未响应或底层配置失败。
+ * @return `true` 初始化成功。
+ * @return `false` 初始化失败。
  */
 bool board_imu_init(void);
 
 /**
- * @brief 查询板级 IMU 是否已经初始化成功。
+ * @brief 查询板级 IMU 是否就绪。
  *
- * @return true IMU 可读。
- * @return false IMU 尚未初始化成功。
+ * @return `true` IMU 可用。
+ * @return `false` IMU 不可用。
  */
 bool board_imu_is_ready(void);
 
 /**
- * @brief 读取 LSM6DSR WHO_AM_I。
+ * @brief 读取 IMU 的 WHO_AM_I 寄存器值。
  *
- * @return uint8_t WHO_AM_I 值；设备不可用时返回 0x00。
+ * @return uint8_t WHO_AM_I 寄存器值。
  */
 uint8_t board_imu_read_who_am_i(void);
 
 /**
- * @brief 读取板级 IMU 一帧采样。
+ * @brief 读取一帧板级 IMU 采样数据。
  *
- * 函数为阻塞式 SPI 读取。App 层不直接访问 SPI 总线、GPIO 片选或芯片寄存器。
- *
- * @param sample 输出采样，不能为 NULL。
- * @return true 读取成功。
- * @return false 参数无效或 IMU 初始化失败。
+ * @param sample 输出采样缓冲区。
+ * @return `true` 读取成功。
+ * @return `false` 读取失败。
  */
 bool board_imu_read(board_imu_sample_t *sample);
 

@@ -2,6 +2,9 @@
 
 #include "ti_msp_dl_config.h"
 
+/* MSPM0 UART 驱动实现：当前仅暴露调试串口阻塞发送。 */
+
+/* 发送单个字节。 */
 void ef_uart_write_byte(ef_uart_id_t id, uint8_t byte)
 {
     switch (id) {
@@ -13,6 +16,7 @@ void ef_uart_write_byte(ef_uart_id_t id, uint8_t byte)
     }
 }
 
+/* 顺序发送一段缓冲区数据。 */
 void ef_uart_write(ef_uart_id_t id, const uint8_t *data, size_t len)
 {
     if (data == NULL) {

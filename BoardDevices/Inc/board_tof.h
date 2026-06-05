@@ -9,9 +9,7 @@ extern "C" {
 #endif
 
 /**
- * @brief 板级 ToF ID 信息。
- *
- * App 层可用该结构做在线检测显示，不需要知道 VL53L0X 的寄存器地址或 I2C 地址格式。
+ * @brief 板级 ToF 芯片 ID 信息。
  */
 typedef struct {
     uint8_t reference_0;
@@ -32,42 +30,40 @@ typedef struct {
 } board_tof_sample_t;
 
 /**
- * @brief 初始化板级前向 ToF。
+ * @brief 初始化板级 ToF 传感器。
  *
- * 当前板级实例绑定到 VL53L0X、I2C0 TOF 总线、PA1 SCL、PA0 SDA、默认 7-bit 地址 0x29。
- * XSHUT 和 GPIO1/INT 在 YAML 中仍是未分配状态，因此这里使用 I2C 轮询/在线检测路径。
+ * 当前仅完成 I2C 在线检测和基础 ID 校验。
  *
- * @return true I2C 在线检测成功。
- * @return false I2C 通信失败或 reference register 不匹配。
+ * @return `true` 初始化成功。
+ * @return `false` 初始化失败。
  */
 bool board_tof_init(void);
 
 /**
- * @brief 查询板级 ToF 是否已经初始化成功。
+ * @brief 查询板级 ToF 是否就绪。
  *
- * @return true 已初始化成功。
- * @return false 尚未初始化成功。
+ * @return `true` 已就绪。
+ * @return `false` 未就绪。
  */
 bool board_tof_is_ready(void);
 
 /**
- * @brief 读取 VL53L0X reference register。
+ * @brief 读取 ToF 芯片 ID 信息。
  *
- * @param id 保存 reference register 读数。
- * @return true 读取成功且默认值匹配。
- * @return false 参数无效、ToF 初始化失败或读数不匹配。
+ * @param id 输出 ID 缓冲区。
+ * @return `true` 读取成功。
+ * @return `false` 读取失败。
  */
 bool board_tof_read_id(board_tof_id_t *id);
 
 /**
  * @brief 执行一次 ToF 单次测距。
  *
- * @warning 当前仓库的 VL53L0X 资料没有完整 ST API 初始化序列，本函数保留应用接口；
- * 在官方 API 或完整寄存器表接入前，底层会返回 false。
+ * @warning 当前底层尚未接入完整 VL53L0X 官方初始化流程，函数可能返回 `false`。
  *
- * @param sample 保存测距结果。
- * @return true 测距成功。
- * @return false 参数无效、ToF 初始化失败或测距序列尚未实现。
+ * @param sample 输出测距结果。
+ * @return `true` 测距成功。
+ * @return `false` 测距失败。
  */
 bool board_tof_read_single(board_tof_sample_t *sample);
 

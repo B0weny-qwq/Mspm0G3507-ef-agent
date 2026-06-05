@@ -34,10 +34,13 @@
 
 #include <stdint.h>
 
-/* Entry point for the application. */
+/* 启动文件：定义中断向量表、复位入口以及默认异常处理流程。 */
+
+/* 应用入口与 C 运行时初始化入口。 */
 extern void SystemInit(void);
 extern int  main( void );
 
+/* 链接脚本导出的段边界符号，用于搬运初始化数据和清零 BSS。 */
 extern uint32_t __data_load__;
 extern uint32_t __data_start__;
 extern uint32_t __data_end__;
@@ -48,23 +51,24 @@ extern uint32_t __bss_start__;
 extern uint32_t __bss_end__;
 extern uint32_t __StackTop;
 
+/* 向量表项统一使用的函数指针类型。 */
 typedef void( *pFunc )( void );
 
-/* Forward declaration of the default fault handlers. */
+/* 默认异常处理函数及其弱符号声明。 */
 void Default_Handler(void);
 extern void Reset_Handler       (void) __attribute__((weak));
 extern void __libc_init_array(void);
 extern void _init               (void) __attribute__((weak, alias("initStub")));
 void initStub(void){;}
 
-/* Processor Exceptions */
+/* Cortex-M0+ 处理器异常向量。 */
 extern void NMI_Handler         (void) __attribute__((weak, alias("Default_Handler")));
 extern void HardFault_Handler   (void) __attribute__((weak, alias("Default_Handler")));
 extern void SVC_Handler         (void) __attribute__((weak, alias("Default_Handler")));
 extern void PendSV_Handler      (void) __attribute__((weak, alias("Default_Handler")));
 extern void SysTick_Handler     (void) __attribute__((weak, alias("Default_Handler")));
 
-/* Device Specific Interrupt Handlers */
+/* MSPM0G3507 片上外设中断向量。 */
 extern void GROUP0_IRQHandler   (void) __attribute__((weak, alias("Default_Handler")));
 extern void GROUP1_IRQHandler   (void) __attribute__((weak, alias("Default_Handler")));
 extern void TIMG8_IRQHandler    (void) __attribute__((weak, alias("Default_Handler")));
@@ -91,93 +95,86 @@ extern void RTC_IRQHandler      (void) __attribute__((weak, alias("Default_Handl
 extern void DMA_IRQHandler      (void) __attribute__((weak, alias("Default_Handler")));
 
 
-/* Interrupt vector table.  Note that the proper constructs must be placed on this to */
-/* ensure that it ends up at physical address 0x0000.0000 or at the start of          */
-/* the program if located at a start address other than 0.                            */
+/* 中断向量表：放入 .intvecs 段，链接到镜像起始地址。 */
 void (* const interruptVectors[])(void) __attribute__ ((used)) __attribute__ ((section (".intvecs"))) =
 {
-    (pFunc)&__StackTop,                    /* The initial stack pointer */
-    Reset_Handler,                         /* The reset handler         */
-    NMI_Handler,                           /* The NMI handler           */
-    HardFault_Handler,                     /* The hard fault handler    */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    SVC_Handler,                           /* SVCall handler            */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    PendSV_Handler,                        /* The PendSV handler        */
-    SysTick_Handler,                       /* SysTick handler           */
-    GROUP0_IRQHandler,                     /* GROUP0 interrupt handler  */
-    GROUP1_IRQHandler,                     /* GROUP1 interrupt handler  */
-    TIMG8_IRQHandler,                      /* TIMG8 interrupt handler   */
-    UART3_IRQHandler,                      /* UART3 interrupt handler   */
-    ADC0_IRQHandler,                       /* ADC0 interrupt handler    */
-    ADC1_IRQHandler,                       /* ADC1 interrupt handler    */
-    CANFD0_IRQHandler,                     /* CANFD0 interrupt handler  */
-    DAC0_IRQHandler,                       /* DAC0 interrupt handler    */
-    0,                                     /* Reserved                  */
-    SPI0_IRQHandler,                       /* SPI0 interrupt handler    */
-    SPI1_IRQHandler,                       /* SPI1 interrupt handler    */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    UART1_IRQHandler,                      /* UART1 interrupt handler   */
-    UART2_IRQHandler,                      /* UART2 interrupt handler   */
-    UART0_IRQHandler,                      /* UART0 interrupt handler   */
-    TIMG0_IRQHandler,                      /* TIMG0 interrupt handler   */
-    TIMG6_IRQHandler,                      /* TIMG6 interrupt handler   */
-    TIMA0_IRQHandler,                      /* TIMA0 interrupt handler   */
-    TIMA1_IRQHandler,                      /* TIMA1 interrupt handler   */
-    TIMG7_IRQHandler,                      /* TIMG7 interrupt handler   */
-    TIMG12_IRQHandler,                     /* TIMG12 interrupt handler  */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    I2C0_IRQHandler,                       /* I2C0 interrupt handler    */
-    I2C1_IRQHandler,                       /* I2C1 interrupt handler    */
-    0,                                     /* Reserved                  */
-    0,                                     /* Reserved                  */
-    AES_IRQHandler,                        /* AES interrupt handler     */
-    0,                                     /* Reserved                  */
-    RTC_IRQHandler,                        /* RTC interrupt handler     */
-    DMA_IRQHandler,                        /* DMA interrupt handler     */
+    (pFunc)&__StackTop,                    /* 初始主栈指针 MSP。 */
+    Reset_Handler,                         /* 上电/复位后的第一入口。 */
+    NMI_Handler,                           /* 不可屏蔽中断。 */
+    HardFault_Handler,                     /* 硬故障异常。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    SVC_Handler,                           /* SVC 系统调用异常。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    PendSV_Handler,                        /* PendSV 异常。 */
+    SysTick_Handler,                       /* SysTick 节拍异常。 */
+    GROUP0_IRQHandler,                     /* GPIO/聚合中断组 0。 */
+    GROUP1_IRQHandler,                     /* GPIO/聚合中断组 1。 */
+    TIMG8_IRQHandler,                      /* 通用定时器 TIMG8。 */
+    UART3_IRQHandler,                      /* UART3 串口中断。 */
+    ADC0_IRQHandler,                       /* ADC0 转换中断。 */
+    ADC1_IRQHandler,                       /* ADC1 转换中断。 */
+    CANFD0_IRQHandler,                     /* CANFD0 控制器中断。 */
+    DAC0_IRQHandler,                       /* DAC0 中断。 */
+    0,                                     /* 保留。 */
+    SPI0_IRQHandler,                       /* SPI0 中断。 */
+    SPI1_IRQHandler,                       /* SPI1 中断。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    UART1_IRQHandler,                      /* UART1 串口中断。 */
+    UART2_IRQHandler,                      /* UART2 串口中断。 */
+    UART0_IRQHandler,                      /* UART0 串口中断。 */
+    TIMG0_IRQHandler,                      /* 通用定时器 TIMG0。 */
+    TIMG6_IRQHandler,                      /* 通用定时器 TIMG6。 */
+    TIMA0_IRQHandler,                      /* 高级定时器 TIMA0。 */
+    TIMA1_IRQHandler,                      /* 高级定时器 TIMA1。 */
+    TIMG7_IRQHandler,                      /* 通用定时器 TIMG7。 */
+    TIMG12_IRQHandler,                     /* 通用定时器 TIMG12。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    I2C0_IRQHandler,                       /* I2C0 控制器中断。 */
+    I2C1_IRQHandler,                       /* I2C1 控制器中断。 */
+    0,                                     /* 保留。 */
+    0,                                     /* 保留。 */
+    AES_IRQHandler,                        /* AES 加解密模块中断。 */
+    0,                                     /* 保留。 */
+    RTC_IRQHandler,                        /* RTC 实时时钟中断。 */
+    DMA_IRQHandler,                        /* DMA 控制器中断。 */
 
 };
 
-/* Forward declaration of the default fault handlers. */
-/* This is the code that gets called when the processor first starts execution */
-/* following a reset event.  Only the absolutely necessary set is performed,   */
-/* after which the application supplied entry() routine is called.  Any fancy  */
-/* actions (such as making decisions based on the reset cause register, and    */
-/* resetting the bits in that register) are left solely in the hands of the    */
-/* application.                                                                */
+/**
+ * @brief 复位处理函数。
+ *
+ * 搬运 `.data` 初值到 SRAM，复制需要驻留 RAM 的函数段，清零 `.bss`，
+ * 然后执行 C 运行时初始化并进入 `main()`。
+ */
 void Reset_Handler(void)
 {
     uint32_t *pui32Src, *pui32Dest;
     uint32_t *bs, *be;
 
-    //
-    // Copy the data segment initializers from flash to SRAM.
-    //
+    /* 将 `.data` 段的初始化值从 Flash 拷贝到 SRAM。 */
     pui32Src = &__data_load__;
     for(pui32Dest = &__data_start__; pui32Dest < &__data_end__; )
     {
         *pui32Dest++ = *pui32Src++;
     }
 
-    //
-    // Copy the ramfunct segment initializers from flash to SRAM.
-    //
+    /* 将需要在 RAM 中运行的函数段初值搬运到 SRAM。 */
     pui32Src = &__ramfunct_load__;
     for(pui32Dest = &__ramfunct_start__; pui32Dest < &__ramfunct_end__; )
     {
         *pui32Dest++ = *pui32Src++;
     }
 
-    // Initialize .bss to zero
+    /* 把 `.bss` 清零。 */
     bs = &__bss_start__;
     be = &__bss_end__;
     while (bs < be)
@@ -186,35 +183,27 @@ void Reset_Handler(void)
         bs++;
     }
 
-    /*
-     * System initialization routine can be called here, but it's not
-     * required for MSPM0.
-     */
+    /* MSPM0 通常不强制要求在此调用 `SystemInit()`。 */
     // SystemInit();
 
-	//
-	// Initialize virtual tables, along executing init, init_array, constructors
-	// and preinit_array functions
-	//
+    /* 初始化 C 运行时、构造函数表和 `init_array`。 */
 	__libc_init_array();
 
-    //
-    // Call the application's entry point.
-    //
+    /* 跳转到应用入口。 */
     main();
 
-    //
-    // If we ever return signal Error
-    //
+    /* 嵌入式主函数不应返回；若返回则转入硬故障处理。 */
     HardFault_Handler();
 }
 
-/* This is the code that gets called when the processor receives an unexpected  */
-/* interrupt.  This simply enters an infinite loop, preserving the system state */
-/* for examination by a debugger.                                               */
+/**
+ * @brief 默认异常/中断处理函数。
+ *
+ * 所有未被用户重载的弱符号中断都会落到这里，方便调试器停住检查现场。
+ */
 void Default_Handler(void)
 {
-    /* Enter an infinite loop. */
+    /* 持续停在这里，等待调试器接管。 */
     while(1)
     {
     }

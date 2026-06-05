@@ -16,8 +16,11 @@ extern "C" {
  * @brief 初始化驱动层。
  */
 void ef_drivers_init(void);
+
 /**
- * @brief 驱动层周期服务函数。
+ * @brief 执行驱动层周期服务。
+ *
+ * 主要用于轮询异步外设状态。
  */
 void ef_drivers_service(void);
 

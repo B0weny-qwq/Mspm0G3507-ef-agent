@@ -2,15 +2,19 @@
 
 #include <stddef.h>
 
+/* 通用按钮状态机：负责消抖、单击、双击和长按识别。 */
+
 #define EF_BUTTON_DEFAULT_DEBOUNCE_MS 20U
 #define EF_BUTTON_DEFAULT_CLICK_MS 300U
 #define EF_BUTTON_DEFAULT_LONG_PRESS_MS 800U
 
+/* 如果配置值为 0，则回退到默认值。 */
 static uint16_t ef_button_pick_u16(uint16_t value, uint16_t fallback)
 {
     return (value == 0U) ? fallback : value;
 }
 
+/* 初始化按钮状态机。 */
 void ef_button_init(ef_button_t *button, const ef_button_config_t *config, bool pressed, uint32_t now_ms)
 {
     if (button == NULL) {
@@ -36,6 +40,7 @@ void ef_button_init(ef_button_t *button, const ef_button_config_t *config, bool 
     button->release_ms = now_ms;
 }
 
+/* 用当前原始输入刷新一次按钮状态机。 */
 ef_button_event_t ef_button_update(ef_button_t *button, bool pressed, uint32_t now_ms)
 {
     ef_button_event_t event = EF_BUTTON_EVENT_NONE;
@@ -87,6 +92,7 @@ ef_button_event_t ef_button_update(ef_button_t *button, bool pressed, uint32_t n
     return event;
 }
 
+/* 获取事件名称，便于日志和界面显示。 */
 const char *ef_button_event_name(ef_button_event_t event)
 {
     switch (event) {

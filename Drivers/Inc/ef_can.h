@@ -8,36 +8,45 @@
 extern "C" {
 #endif
 
-/** CAN 控制器标识。 */
+/**
+ * @brief CAN 控制器编号。
+ */
 typedef enum {
-    /** 车载总线 CAN。 */
+    /** 车载总线 CAN 控制器。 */
     EF_CAN_VEHICLE = 0,
 } ef_can_id_t;
 
-/** CAN 数据帧。 */
+/**
+ * @brief CAN 数据帧。
+ */
 typedef struct {
-    /** 帧 ID（标准 11 位或扩展 29 位）。 */
+    /** 帧 ID，支持标准 11 位或扩展 29 位。 */
     uint32_t id;
-    /** 是否为扩展帧（true=扩展帧）。 */
+    /** 是否为扩展帧。 */
     bool extended;
-    /** 数据长度码（0~8）。 */
+    /** 数据长度码，取值 0 到 8。 */
     uint8_t dlc;
-    /** 数据区。 */
+    /** 帧数据。 */
     uint8_t data[8];
 } ef_can_frame_t;
 
 /**
- * @brief 发送 CAN 帧。
- * @param id CAN 标识。
- * @param frame 待发送数据帧。
- * @param timeout_ms 超时时间（毫秒）。
- * @return 成功返回 true，失败返回 false。
+ * @brief 发送一帧 CAN 数据。
+ *
+ * @param id CAN 控制器编号。
+ * @param frame 待发送帧。
+ * @param timeout_ms 超时时间，单位 ms。
+ * @return `true` 发送成功。
+ * @return `false` 发送失败。
  */
 bool ef_can_send(ef_can_id_t id, const ef_can_frame_t *frame, uint32_t timeout_ms);
+
 /**
- * @brief 查询 CAN 发送是否忙。
- * @param id CAN 标识。
- * @return 忙返回 true，空闲返回 false。
+ * @brief 查询 CAN 发送邮箱是否忙。
+ *
+ * @param id CAN 控制器编号。
+ * @return `true` 正忙。
+ * @return `false` 空闲。
  */
 bool ef_can_tx_busy(ef_can_id_t id);
 

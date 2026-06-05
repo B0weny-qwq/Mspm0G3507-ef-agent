@@ -2,6 +2,9 @@
 
 #include "ti_msp_dl_config.h"
 
+/* MSPM0 GPIO 驱动实现：把逻辑 GPIO 编号映射到底层引脚资源。 */
+
+/* 设置逻辑 GPIO 的输出状态。 */
 void ef_gpio_write(ef_gpio_id_t id, bool active)
 {
     switch (id) {
@@ -63,11 +66,17 @@ void ef_gpio_write(ef_gpio_id_t id, bool active)
         break;
     case EF_GPIO_BUTTON_BOOT:
         break;
+    case EF_GPIO_ENCODER1_STEP:
+    case EF_GPIO_ENCODER1_DIR:
+    case EF_GPIO_ENCODER2_STEP:
+    case EF_GPIO_ENCODER2_DIR:
+        break;
     default:
         break;
     }
 }
 
+/* 翻转逻辑 GPIO 当前输出状态。 */
 void ef_gpio_toggle(ef_gpio_id_t id)
 {
     switch (id) {
@@ -97,11 +106,17 @@ void ef_gpio_toggle(ef_gpio_id_t id)
         break;
     case EF_GPIO_BUTTON_BOOT:
         break;
+    case EF_GPIO_ENCODER1_STEP:
+    case EF_GPIO_ENCODER1_DIR:
+    case EF_GPIO_ENCODER2_STEP:
+    case EF_GPIO_ENCODER2_DIR:
+        break;
     default:
         break;
     }
 }
 
+/* 读取逻辑 GPIO 当前状态。 */
 bool ef_gpio_read(ef_gpio_id_t id)
 {
     switch (id) {
@@ -123,6 +138,14 @@ bool ef_gpio_read(ef_gpio_id_t id)
         return (DL_GPIO_readPins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN) != 0U);
     case EF_GPIO_BUTTON_BOOT:
         return (DL_GPIO_readPins(GPIO_BUTTONS_PORT, GPIO_BUTTONS_BOOT_PIN) != 0U);
+    case EF_GPIO_ENCODER1_STEP:
+        return (DL_GPIO_readPins(GPIO_ENCODERS_PORT, GPIO_ENCODERS_ENCODER1_STEP_PIN) != 0U);
+    case EF_GPIO_ENCODER1_DIR:
+        return (DL_GPIO_readPins(GPIO_ENCODERS_PORT, GPIO_ENCODERS_ENCODER1_DIR_PIN) != 0U);
+    case EF_GPIO_ENCODER2_STEP:
+        return (DL_GPIO_readPins(GPIO_ENCODERS_PORT, GPIO_ENCODERS_ENCODER2_STEP_PIN) != 0U);
+    case EF_GPIO_ENCODER2_DIR:
+        return (DL_GPIO_readPins(GPIO_ENCODERS_PORT, GPIO_ENCODERS_ENCODER2_DIR_PIN) != 0U);
     default:
         return false;
     }

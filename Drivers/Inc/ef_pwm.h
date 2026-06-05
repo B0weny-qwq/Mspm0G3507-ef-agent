@@ -8,7 +8,9 @@
 extern "C" {
 #endif
 
-/** PWM 通道标识。 */
+/**
+ * @brief PWM 通道编号。
+ */
 typedef enum {
     /** PWM3 通道。 */
     EF_PWM_PWM3 = 0,
@@ -30,28 +32,38 @@ typedef enum {
  * @brief 初始化 PWM 驱动。
  */
 void ef_pwm_init(void);
+
 /**
- * @brief 设置占空比（千分比）。
- * @param id PWM 标识。
- * @param duty_permille 占空比，范围通常为 0~1000。
- * @return 成功返回 true，失败返回 false。
+ * @brief 按千分比设置占空比。
+ *
+ * @param id PWM 通道编号。
+ * @param duty_permille 占空比，范围通常为 0 到 1000。
+ * @return `true` 设置成功。
+ * @return `false` 设置失败。
  */
 bool ef_pwm_set_duty_permille(ef_pwm_id_t id, uint16_t duty_permille);
+
 /**
  * @brief 设置比较寄存器值。
- * @param id PWM 标识。
+ *
+ * @param id PWM 通道编号。
  * @param compare_value 比较值。
- * @return 成功返回 true，失败返回 false。
+ * @return `true` 设置成功。
+ * @return `false` 设置失败。
  */
 bool ef_pwm_set_compare_value(ef_pwm_id_t id, uint32_t compare_value);
+
 /**
  * @brief 启动 PWM 输出。
- * @param id PWM 标识。
+ *
+ * @param id PWM 通道编号。
  */
 void ef_pwm_start(ef_pwm_id_t id);
+
 /**
  * @brief 停止 PWM 输出。
- * @param id PWM 标识。
+ *
+ * @param id PWM 通道编号。
  */
 void ef_pwm_stop(ef_pwm_id_t id);
 

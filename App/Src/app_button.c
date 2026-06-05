@@ -4,6 +4,8 @@
 
 #include <stddef.h>
 
+/* 应用层按钮模块：封装板级按键输入，并把按钮状态机事件分发给注册回调。 */
+
 #define APP_BUTTON_MAX_HANDLERS 4U
 
 typedef struct {
@@ -17,6 +19,7 @@ static ef_button_event_t g_last_events[APP_BUTTON_COUNT];
 static app_button_binding_t g_handlers[APP_BUTTON_MAX_HANDLERS];
 static uint8_t g_handler_count;
 
+/* 读取指定应用按钮当前的原始按下状态。 */
 static bool app_button_raw_pressed(app_button_id_t id)
 {
     switch (id) {
@@ -27,6 +30,7 @@ static bool app_button_raw_pressed(app_button_id_t id)
     }
 }
 
+/* 将识别出的按钮事件广播给所有注册处理器。 */
 static void app_button_dispatch(app_button_id_t id, ef_button_event_t event)
 {
     g_last_events[id] = event;
@@ -38,6 +42,7 @@ static void app_button_dispatch(app_button_id_t id, ef_button_event_t event)
     }
 }
 
+/* 初始化应用层按钮状态机和事件回调表。 */
 void app_button_init(void)
 {
     board_button_init();
@@ -50,6 +55,7 @@ void app_button_init(void)
     ef_button_init(&g_boot_button, NULL, app_button_raw_pressed(APP_BUTTON_BOOT), g_button_time_ms);
 }
 
+/* 10 ms 周期扫描一次按钮，并把新事件分发出去。 */
 void app_button_tick_10ms(void)
 {
     ef_button_event_t event;
@@ -62,6 +68,7 @@ void app_button_tick_10ms(void)
     }
 }
 
+/* 注册应用层按钮事件处理函数。 */
 bool app_button_register_handler(app_button_handler_t handler, void *ctx)
 {
     if ((handler == NULL) || (g_handler_count >= APP_BUTTON_MAX_HANDLERS)) {
@@ -74,11 +81,13 @@ bool app_button_register_handler(app_button_handler_t handler, void *ctx)
     return true;
 }
 
+/* 查询指定应用按钮当前是否按下。 */
 bool app_button_is_pressed(app_button_id_t id)
 {
     return app_button_raw_pressed(id);
 }
 
+/* 获取某个按钮最近一次识别到的事件。 */
 ef_button_event_t app_button_get_last_event(app_button_id_t id)
 {
     if (id >= APP_BUTTON_COUNT) {
@@ -88,6 +97,7 @@ ef_button_event_t app_button_get_last_event(app_button_id_t id)
     return g_last_events[id];
 }
 
+/* 获取按钮名称，用于日志和界面显示。 */
 const char *app_button_name(app_button_id_t id)
 {
     switch (id) {

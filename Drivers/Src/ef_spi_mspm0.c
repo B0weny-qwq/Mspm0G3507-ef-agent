@@ -4,6 +4,8 @@
 
 #include "ti_msp_dl_config.h"
 
+/* MSPM0 SPI 驱动实现：提供阻塞字节传输，以及 BOARD SPI 的 DMA 异步发送能力。 */
+
 #define EF_SPI_BOARD_DMA_TX_CH 0U
 #define EF_SPI_BOARD_DMA_RX_CH 1U
 #define EF_SPI_DMA_MIN_LEN 16U
@@ -29,6 +31,7 @@ static bool g_spi_initialized;
 
 static void ef_spi_spi_irq_handler(void);
 
+/* 清空 RX FIFO，并顺便清掉溢出标志。 */
 static void ef_spi_drain_rx_fifo(SPI_Regs *spi)
 {
     if (spi == NULL) {
@@ -42,6 +45,7 @@ static void ef_spi_drain_rx_fifo(SPI_Regs *spi)
     DL_SPI_clearInterruptStatus(spi, DL_SPI_INTERRUPT_RX_OVERFLOW);
 }
 
+/* 根据逻辑总线编号返回底层 SPI 实例。 */
 static SPI_Regs *ef_spi_inst(ef_spi_id_t id)
 {
     switch (id) {
@@ -54,6 +58,7 @@ static SPI_Regs *ef_spi_inst(ef_spi_id_t id)
     }
 }
 
+/* 获取异步状态对象，当前只有 BOARD SPI 支持 DMA 异步发送。 */
 static ef_spi_async_state_t *ef_spi_async_state(ef_spi_id_t id)
 {
     switch (id) {
@@ -64,6 +69,7 @@ static ef_spi_async_state_t *ef_spi_async_state(ef_spi_id_t id)
     }
 }
 
+/* 初始化 SPI 外设和 BOARD SPI 对应的 DMA 通道。 */
 void ef_spi_init(void)
 {
     if (g_spi_initialized) {
@@ -99,6 +105,7 @@ void ef_spi_init(void)
     g_spi_initialized = true;
 }
 
+/* 发送并接收单个字节。 */
 uint8_t ef_spi_transfer_byte(ef_spi_id_t id, uint8_t tx)
 {
     SPI_Regs *const spi = ef_spi_inst(id);
@@ -123,6 +130,7 @@ uint8_t ef_spi_transfer_byte(ef_spi_id_t id, uint8_t tx)
     return DL_SPI_receiveData8(spi);
 }
 
+/* 阻塞写入一段 SPI 数据。 */
 void ef_spi_write(ef_spi_id_t id, const uint8_t *data, size_t len)
 {
     if (data == NULL) {
@@ -148,6 +156,7 @@ void ef_spi_write(ef_spi_id_t id, const uint8_t *data, size_t len)
     }
 }
 
+/* 阻塞读取一段 SPI 数据。 */
 void ef_spi_read(ef_spi_id_t id, uint8_t fill, uint8_t *data, size_t len)
 {
     if (data == NULL) {
@@ -165,6 +174,7 @@ void ef_spi_read(ef_spi_id_t id, uint8_t fill, uint8_t *data, size_t len)
     }
 }
 
+/* 阻塞全双工传输。 */
 void ef_spi_transfer(ef_spi_id_t id, const uint8_t *tx, uint8_t *rx, size_t len)
 {
     ef_spi_init();
@@ -183,6 +193,7 @@ void ef_spi_transfer(ef_spi_id_t id, const uint8_t *tx, uint8_t *rx, size_t len)
     }
 }
 
+/* 启动 BOARD SPI 的 DMA 异步写事务。 */
 bool ef_spi_write_async(ef_spi_id_t id, const uint8_t *data, size_t len, ef_spi_async_callback_t callback, void *ctx)
 {
     SPI_Regs *const spi = ef_spi_inst(id);
@@ -231,6 +242,7 @@ bool ef_spi_write_async(ef_spi_id_t id, const uint8_t *data, size_t len, ef_spi_
     return true;
 }
 
+/* 查询某条 SPI 总线是否存在未完成的异步事务。 */
 bool ef_spi_is_busy(ef_spi_id_t id)
 {
     ef_spi_async_state_t *const state = ef_spi_async_state(id);
@@ -238,6 +250,7 @@ bool ef_spi_is_busy(ef_spi_id_t id)
     return (state != NULL) && state->busy;
 }
 
+/* 轮询 BOARD SPI 异步事务状态并在完成时收尾。 */
 void ef_spi_poll(ef_spi_id_t id)
 {
     SPI_Regs *const spi = ef_spi_inst(id);
@@ -269,6 +282,7 @@ void ef_spi_poll(ef_spi_id_t id)
     }
 }
 
+/* 消费 SPI 中断状态并同步到软件状态机。 */
 static void ef_spi_spi_irq_handler(void)
 {
     ef_spi_async_state_t *const state = &g_spi_async[0];
@@ -295,6 +309,7 @@ static void ef_spi_spi_irq_handler(void)
     } while ((uint32_t) pending != SPI_CPU_INT_IIDX_STAT_NO_INTR);
 }
 
+/* BOARD SPI 中断入口。 */
 void SPI_BOARD_INST_IRQHandler(void)
 {
     ef_spi_spi_irq_handler();

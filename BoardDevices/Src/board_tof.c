@@ -4,11 +4,14 @@
 #include "ef_platform.h"
 #include "vl53l0x.h"
 
+/* 板级 ToF 适配层：把 VL53L0X 绑定到 I2C 总线和平台时间函数。 */
+
 #define BOARD_TOF_I2C_TIMEOUT_MS 10U
 
 static vl53l0x_t g_tof;
 static bool g_tof_ready;
 
+/* 确保 ToF 设备已初始化。 */
 static bool board_tof_ensure_ready(void)
 {
     if (!g_tof_ready) {
@@ -18,6 +21,7 @@ static bool board_tof_ensure_ready(void)
     return g_tof_ready;
 }
 
+/* 板级 I2C 写适配。 */
 static bool board_tof_i2c_write(uint8_t address_7bit, const uint8_t *data, size_t len,
     uint32_t timeout_ms, void *ctx)
 {
@@ -26,6 +30,7 @@ static bool board_tof_i2c_write(uint8_t address_7bit, const uint8_t *data, size_
     return ef_i2c_write(EF_I2C_TOF, address_7bit, data, len, timeout_ms);
 }
 
+/* 板级 I2C 先写后读适配。 */
 static bool board_tof_i2c_write_read(uint8_t address_7bit, const uint8_t *tx, size_t tx_len,
     uint8_t *rx, size_t rx_len, uint32_t timeout_ms, void *ctx)
 {
@@ -34,6 +39,7 @@ static bool board_tof_i2c_write_read(uint8_t address_7bit, const uint8_t *tx, si
     return ef_i2c_write_read(EF_I2C_TOF, address_7bit, tx, tx_len, rx, rx_len, timeout_ms);
 }
 
+/* 板级毫秒延时适配。 */
 static void board_tof_delay_ms(uint32_t delay_ms, void *ctx)
 {
     (void) ctx;
@@ -41,6 +47,7 @@ static void board_tof_delay_ms(uint32_t delay_ms, void *ctx)
     ef_platform_delay_ms(delay_ms);
 }
 
+/* 板级毫秒计数适配。 */
 static uint32_t board_tof_millis(void *ctx)
 {
     (void) ctx;
@@ -48,6 +55,7 @@ static uint32_t board_tof_millis(void *ctx)
     return ef_platform_millis();
 }
 
+/* 初始化板级 ToF 模块。 */
 bool board_tof_init(void)
 {
     const vl53l0x_bus_t bus = {
@@ -67,11 +75,13 @@ bool board_tof_init(void)
     return g_tof_ready;
 }
 
+/* 查询 ToF 模块是否就绪。 */
 bool board_tof_is_ready(void)
 {
     return g_tof_ready;
 }
 
+/* 读取 ToF 芯片参考 ID。 */
 bool board_tof_read_id(board_tof_id_t *id)
 {
     vl53l0x_id_t chip_id;
@@ -92,6 +102,7 @@ bool board_tof_read_id(board_tof_id_t *id)
     return true;
 }
 
+/* 执行一次单次测距。 */
 bool board_tof_read_single(board_tof_sample_t *sample)
 {
     vl53l0x_sample_t chip_sample;

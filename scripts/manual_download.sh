@@ -3,12 +3,22 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-EF="${EF:-ef}"
+if [[ -n "${EF:-}" ]]; then
+    EF="$EF"
+elif command -v ef >/dev/null 2>&1; then
+    EF="$(command -v ef)"
+elif [[ -x "$HOME/embedforge/ef" ]]; then
+    EF="$HOME/embedforge/ef"
+else
+    EF="ef"
+fi
 OPENOCD="${OPENOCD:-$HOME/.local/openocd-git/bin/openocd}"
 OPENOCD_SCRIPTS="${OPENOCD_SCRIPTS:-$HOME/.local/openocd-git/share/openocd/scripts}"
 TARGET_CFG="${TARGET_CFG:-target/ti/mspm0.cfg}"
+TARGET="${TARGET:-mspm0g3507}"
 ADAPTER="${ADAPTER:-cmsis-dap}"
-SPEED="${SPEED:-4000}"
+SPEED="${SPEED:-1000}"
+FLASH_TIMEOUT="${FLASH_TIMEOUT:-180}"
 ELF="${ELF:-build/app.elf}"
 HEX="${HEX:-build/app.hex}"
 DAPLINK="${DAPLINK:-/media/$USER/DAPLINK}"
@@ -27,16 +37,16 @@ Commands:
   status       Show probe, serial, DAPLink, and FAIL.TXT state.
   build        Build firmware with EmbedForge.
   dry-run      Print the resolved OpenOCD flash command.
-  flash        Flash with OpenOCD once, then run ef reset automatically.
-  flash-loop   Retry OpenOCD flash; reset automatically after success.
+  flash        Flash with OpenOCD once; OpenOCD verifies and resets automatically.
+  run          Build, flash, verify, reset, and exit.
+  flash-loop   Retry OpenOCD flash; OpenOCD resets automatically after success.
   daplink      Copy build/app.hex to the DAPLink disk and sync.
   serial       Read UART logs from ${SERIAL} at 115200.
   serial-follow Keep reading UART logs until Ctrl+C.
   commands     Print raw commands you can copy and run manually.
 
 Common overrides:
-  SPEED=4000 ./scripts/manual_download.sh flash
-  SPEED=8000 ./scripts/manual_download.sh flash
+  FLASH_TIMEOUT=240 ./scripts/manual_download.sh flash
   TRIES=60 ./scripts/manual_download.sh flash-loop
   SERIAL=/dev/ttyACM1 ./scripts/manual_download.sh serial
   DAPLINK=/media/\$USER/DAPLINK ./scripts/manual_download.sh daplink
@@ -66,8 +76,10 @@ EF:              ${EF}
 OpenOCD:         ${OPENOCD}
 OpenOCD scripts: ${OPENOCD_SCRIPTS}
 Target cfg:      ${TARGET_CFG}
+Target:          ${TARGET}
 Adapter:         ${ADAPTER}
 Speed:           ${SPEED} kHz
+Flash timeout:   ${FLASH_TIMEOUT}s
 ELF:             ${ELF}
 HEX:             ${HEX}
 DAPLink disk:    ${DAPLINK}
@@ -77,11 +89,13 @@ EOF
 
 openocd_flash_args=(
     --adapter "$ADAPTER"
+    --target "$TARGET"
     --file "$ELF"
     --openocd "$OPENOCD"
     --scripts-dir "$OPENOCD_SCRIPTS"
     --target-cfg "$TARGET_CFG"
     --speed "$SPEED"
+    --timeout "$FLASH_TIMEOUT"
     --verbose
 )
 
@@ -123,9 +137,13 @@ cmd_flash() {
     require_exe "$EF"
     require_exe "$OPENOCD"
     require_file "$ELF"
-    echo "If OpenOCD reports 'cannot read IDR', press RESET and retry."
+    echo "DAPLink flash can take about 120s; waiting up to ${FLASH_TIMEOUT}s."
     "$EF" flash "${openocd_flash_args[@]}"
-    "$EF" reset --adapter "$ADAPTER"
+}
+
+cmd_run() {
+    cmd_build
+    cmd_flash
 }
 
 cmd_flash_loop() {
@@ -136,7 +154,6 @@ cmd_flash_loop() {
     for i in $(seq 1 "$TRIES"); do
         echo "try ${i}/${TRIES}"
         if "$EF" flash "${openocd_flash_args[@]}"; then
-            "$EF" reset --adapter "$ADAPTER"
             exit 0
         fi
         sleep 0.5
@@ -182,14 +199,14 @@ ${EF} build --target cmake-arm
 
 ${EF} flash \\
   --adapter ${ADAPTER} \\
+  --target ${TARGET} \\
   --file ${ELF} \\
   --openocd ${OPENOCD} \\
   --scripts-dir ${OPENOCD_SCRIPTS} \\
   --target-cfg ${TARGET_CFG} \\
   --speed ${SPEED} \\
+  --timeout ${FLASH_TIMEOUT} \\
   --verbose
-
-${EF} reset --adapter ${ADAPTER}
 
 cp ${HEX} ${DAPLINK}/app.hex
 sync
@@ -217,6 +234,9 @@ case "${1:-help}" in
         ;;
     flash)
         cmd_flash
+        ;;
+    run)
+        cmd_run
         ;;
     flash-loop)
         cmd_flash_loop

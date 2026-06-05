@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include "app_button.h"
+#include "board_encoder.h"
 #include "board_flash.h"
 #include "board_imu.h"
 #include "board_lcd.h"
@@ -8,19 +9,29 @@
 #include "board_optical_flow.h"
 #include "board_tof.h"
 #include "ef_event.h"
+#include "ef_lowpass.h"
 #include "ef_log.h"
 #include "ef_scheduler.h"
 
 #include <stdio.h>
 
+/* 应用层示例：初始化外设状态页，周期刷新 LCD，并通过事件驱动 LED 心跳。 */
+
 enum {
     APP_EVENT_LED_TOGGLE = 1,
+};
+
+enum {
+    APP_ENCODER_SAMPLE_MS = 50U,
+    APP_ENCODER_FILTER_SHIFT = 1U,
+    APP_ENCODER_FILTER_ZERO_THRESHOLD = 1,
 };
 
 static const char *TAG = "app";
 
 static void app_button_task(void *ctx);
 static void app_button_status_handler(app_button_id_t id, ef_button_event_t event, void *ctx);
+static void app_encoder_task(void *ctx);
 static void app_led_task(void *ctx);
 static void app_lcd_task(void *ctx);
 static void app_led_event_handler(ef_event_id_t id, const void *payload, void *ctx);
@@ -36,6 +47,12 @@ static const ef_task_config_t g_app_tasks[] = {
         .run = app_lcd_task,
         .ctx = 0,
         .period_ms = 33U,
+        .run_on_start = true,
+    },
+    {
+        .run = app_encoder_task,
+        .ctx = 0,
+        .period_ms = APP_ENCODER_SAMPLE_MS,
         .run_on_start = true,
     },
     {
@@ -55,42 +72,42 @@ static const ef_event_binding_t g_app_events[] = {
 };
 
 static bool g_fps_blink_on;
-static uint32_t g_fps_counter;
-static uint32_t g_fps_last_counter;
-static uint8_t g_fps_display_value;
-static uint8_t g_fps_ticks;
-static uint8_t g_frame_display_value;
 static bool g_lcd_ready;
 static char g_button_status[28] = "BOOT: IDLE";
 static char g_init_status[28] = "INIT: pending";
 static char g_imu_status[28] = "IMU: pending";
 static char g_optical_flow_status[28] = "FLOW: pending";
 static char g_tof_status[28] = "TOF: pending";
+static char g_encoder1_status[28] = "ENC1: +0";
+static char g_encoder2_status[28] = "ENC2: +0";
 static char g_error_status[28] = "ERR: none";
+static ef_lowpass_i32_t g_encoder1_filter;
+static ef_lowpass_i32_t g_encoder2_filter;
 static void app_draw_lcd_static_page(void);
 static void app_draw_button_status(void);
 static void app_draw_init_status(void);
 static void app_draw_imu_status(void);
 static void app_draw_optical_flow_status(void);
 static void app_draw_tof_status(void);
+static void app_draw_encoder_status(void);
 static void app_draw_error_status(void);
 static void app_error_log_sink(ef_log_level_t level, const char *line, void *ctx);
 
+/* 初始化应用状态、板级模块和任务调度器。 */
 void app_init(ef_idle_fn_t idle)
 {
     g_fps_blink_on = false;
-    g_fps_counter = 0U;
-    g_fps_last_counter = 0U;
-    g_fps_display_value = 0U;
-    g_fps_ticks = 0U;
-    g_frame_display_value = 0U;
     g_lcd_ready = false;
     snprintf(g_button_status, sizeof(g_button_status), "BOOT: IDLE");
     snprintf(g_init_status, sizeof(g_init_status), "INIT: pending");
     snprintf(g_imu_status, sizeof(g_imu_status), "IMU: pending");
     snprintf(g_optical_flow_status, sizeof(g_optical_flow_status), "FLOW: pending");
     snprintf(g_tof_status, sizeof(g_tof_status), "TOF: pending");
+    snprintf(g_encoder1_status, sizeof(g_encoder1_status), "ENC1: +0");
+    snprintf(g_encoder2_status, sizeof(g_encoder2_status), "ENC2: +0");
     snprintf(g_error_status, sizeof(g_error_status), "ERR: none");
+    ef_lowpass_i32_init(&g_encoder1_filter, APP_ENCODER_FILTER_SHIFT, APP_ENCODER_FILTER_ZERO_THRESHOLD);
+    ef_lowpass_i32_init(&g_encoder2_filter, APP_ENCODER_FILTER_SHIFT, APP_ENCODER_FILTER_ZERO_THRESHOLD);
 
     ef_log_init(EF_LOG_INFO);
     ef_log_set_error_sink(app_error_log_sink, NULL);
@@ -178,23 +195,37 @@ void app_init(ef_idle_fn_t idle)
     }
     app_draw_tof_status();
 
+    if (board_encoder_init()) {
+        snprintf(g_encoder1_status, sizeof(g_encoder1_status), "ENC1: +0");
+        snprintf(g_encoder2_status, sizeof(g_encoder2_status), "ENC2: +0");
+        EF_LOGI("encoder", "capture ok: enc1 step PA28 dir PA31, enc2 step PA26 dir PA27");
+    } else {
+        snprintf(g_encoder1_status, sizeof(g_encoder1_status), "ENC1: FAIL");
+        snprintf(g_encoder2_status, sizeof(g_encoder2_status), "ENC2: FAIL");
+        EF_LOGE("encoder", "init failed");
+    }
+    app_draw_encoder_status();
+
     ef_event_init(g_app_events, sizeof(g_app_events) / sizeof(g_app_events[0]));
     EF_LOGI("init", "event ok");
     ef_scheduler_init(g_app_tasks, sizeof(g_app_tasks) / sizeof(g_app_tasks[0]), idle);
     EF_LOGI("init", "scheduler ok");
 }
 
+/* 进入应用层调度主循环。 */
 void app_run(void)
 {
     ef_scheduler_run_forever();
 }
 
+/* 周期发布 LED 翻转事件。 */
 static void app_led_task(void *ctx)
 {
     (void) ctx;
     ef_event_publish(APP_EVENT_LED_TOGGLE, 0);
 }
 
+/* 周期扫描按钮状态机。 */
 static void app_button_task(void *ctx)
 {
     (void) ctx;
@@ -202,6 +233,24 @@ static void app_button_task(void *ctx)
     app_button_tick_10ms();
 }
 
+/* 50ms 读取一次编码器增量，并把增量作为速度显示。 */
+static void app_encoder_task(void *ctx)
+{
+    const int32_t encoder1_raw = board_encoder_read_delta(BOARD_ENCODER_1);
+    const int32_t encoder2_raw = board_encoder_read_delta(BOARD_ENCODER_2);
+    const int32_t encoder1_speed = ef_lowpass_i32_update(&g_encoder1_filter, encoder1_raw);
+    const int32_t encoder2_speed = ef_lowpass_i32_update(&g_encoder2_filter, encoder2_raw);
+
+    (void) ctx;
+
+    board_encoder_set_speed_50ms(BOARD_ENCODER_1, encoder1_speed);
+    board_encoder_set_speed_50ms(BOARD_ENCODER_2, encoder2_speed);
+    snprintf(g_encoder1_status, sizeof(g_encoder1_status), "ENC1: %+ld", (long) encoder1_speed);
+    snprintf(g_encoder2_status, sizeof(g_encoder2_status), "ENC2: %+ld", (long) encoder2_speed);
+    app_draw_encoder_status();
+}
+
+/* 按钮事件回调：刷新状态行并输出日志。 */
 static void app_button_status_handler(app_button_id_t id, ef_button_event_t event, void *ctx)
 {
     (void) ctx;
@@ -211,47 +260,17 @@ static void app_button_status_handler(app_button_id_t id, ef_button_event_t even
     app_draw_button_status();
 }
 
+/* LCD 周期任务：刷新心跳指示并推送脏矩形。 */
 static void app_lcd_task(void *ctx)
 {
-    char fps_text[10];
-    char frame_text[10];
-
     (void) ctx;
-    g_fps_counter++;
     g_fps_blink_on = !g_fps_blink_on;
     board_lcd_fill_rect(140U, 4U, 12U, 12U, g_fps_blink_on ? BOARD_LCD_COLOR_WHITE : BOARD_LCD_COLOR_BLACK);
-
-    g_frame_display_value = (uint8_t) ((g_frame_display_value + 1U) % 100U);
-
-    g_fps_ticks++;
-    if (g_fps_ticks >= 30U) {
-        g_fps_ticks = 0U;
-        g_fps_display_value = (uint8_t) (g_fps_counter - g_fps_last_counter);
-        g_fps_last_counter = g_fps_counter;
-        fps_text[0] = 'F';
-        fps_text[1] = 'P';
-        fps_text[2] = 'S';
-        fps_text[3] = ':';
-        fps_text[4] = ' ';
-        fps_text[5] = (char) ('0' + ((g_fps_display_value / 10U) % 10U));
-        fps_text[6] = (char) ('0' + (g_fps_display_value % 10U));
-        fps_text[7] = '\0';
-        board_lcd_fill_rect(4U, 102U, 48U, 8U, BOARD_LCD_COLOR_BLACK);
-        board_lcd_draw_string(4U, 102U, fps_text, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
-
-        frame_text[0] = 'F';
-        frame_text[1] = ':';
-        frame_text[2] = ' ';
-        frame_text[3] = (char) ('0' + ((g_frame_display_value / 10U) % 10U));
-        frame_text[4] = (char) ('0' + (g_frame_display_value % 10U));
-        frame_text[5] = '\0';
-        board_lcd_fill_rect(4U, 78U, 42U, 8U, BOARD_LCD_COLOR_BLACK);
-        board_lcd_draw_string(4U, 78U, frame_text, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
-    }
 
     board_lcd_service();
 }
 
+/* LED 事件处理器：翻转指示灯并记录调试日志。 */
 static void app_led_event_handler(ef_event_id_t id, const void *payload, void *ctx)
 {
     (void) id;
@@ -261,6 +280,7 @@ static void app_led_event_handler(ef_event_id_t id, const void *payload, void *c
     EF_LOGD(TAG, "heartbeat");
 }
 
+/* 绘制 LCD 静态框架和各状态区。 */
 static void app_draw_lcd_static_page(void)
 {
     board_lcd_fill(BOARD_LCD_COLOR_BLACK);
@@ -272,23 +292,23 @@ static void app_draw_lcd_static_page(void)
     app_draw_imu_status();
     app_draw_optical_flow_status();
     app_draw_tof_status();
-    board_lcd_draw_string(4U, 78U, "F: 00", BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
+    app_draw_encoder_status();
     app_draw_button_status();
-    board_lcd_draw_string(4U, 102U, "FPS: 00", BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
-    board_lcd_draw_string(64U, 102U, "TARGET 30", BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
     app_draw_error_status();
 }
 
+/* 刷新按钮状态区域。 */
 static void app_draw_button_status(void)
 {
     if (!g_lcd_ready) {
         return;
     }
 
-    board_lcd_fill_rect(4U, 90U, 150U, 8U, BOARD_LCD_COLOR_BLACK);
-    board_lcd_draw_string(4U, 90U, g_button_status, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
+    board_lcd_fill_rect(4U, 102U, 150U, 8U, BOARD_LCD_COLOR_BLACK);
+    board_lcd_draw_string(4U, 102U, g_button_status, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
 }
 
+/* 刷新初始化状态区域。 */
 static void app_draw_init_status(void)
 {
     if (!g_lcd_ready) {
@@ -299,6 +319,7 @@ static void app_draw_init_status(void)
     board_lcd_draw_string(4U, 32U, g_init_status, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
 }
 
+/* 刷新 IMU 状态区域。 */
 static void app_draw_imu_status(void)
 {
     if (!g_lcd_ready) {
@@ -309,6 +330,7 @@ static void app_draw_imu_status(void)
     board_lcd_draw_string(4U, 42U, g_imu_status, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
 }
 
+/* 刷新光流状态区域。 */
 static void app_draw_optical_flow_status(void)
 {
     if (!g_lcd_ready) {
@@ -319,6 +341,7 @@ static void app_draw_optical_flow_status(void)
     board_lcd_draw_string(4U, 54U, g_optical_flow_status, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
 }
 
+/* 刷新 ToF 状态区域。 */
 static void app_draw_tof_status(void)
 {
     if (!g_lcd_ready) {
@@ -329,6 +352,20 @@ static void app_draw_tof_status(void)
     board_lcd_draw_string(4U, 66U, g_tof_status, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
 }
 
+/* 刷新编码器速度区域。 */
+static void app_draw_encoder_status(void)
+{
+    if (!g_lcd_ready) {
+        return;
+    }
+
+    board_lcd_fill_rect(4U, 78U, 150U, 8U, BOARD_LCD_COLOR_BLACK);
+    board_lcd_draw_string(4U, 78U, g_encoder1_status, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
+    board_lcd_fill_rect(4U, 90U, 150U, 8U, BOARD_LCD_COLOR_BLACK);
+    board_lcd_draw_string(4U, 90U, g_encoder2_status, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
+}
+
+/* 刷新错误状态区域。 */
 static void app_draw_error_status(void)
 {
     if (!g_lcd_ready) {
@@ -339,6 +376,7 @@ static void app_draw_error_status(void)
     board_lcd_draw_string(4U, 114U, g_error_status, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
 }
 
+/* 将错误日志裁剪后同步显示在 LCD 底部。 */
 static void app_error_log_sink(ef_log_level_t level, const char *line, void *ctx)
 {
     const char *msg = line;

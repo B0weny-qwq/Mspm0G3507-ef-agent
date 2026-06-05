@@ -47,6 +47,7 @@ target_compile_options(ef_platform PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_drivers
   Drivers/Src/ef_can_mspm0.c
+  Drivers/Src/ef_capture_mspm0.c
   Drivers/Src/ef_drivers.c
   Drivers/Src/ef_gpio_mspm0.c
   Drivers/Src/ef_i2c_mspm0.c
@@ -64,19 +65,20 @@ target_link_libraries(ef_drivers PRIVATE ef_platform)
 target_compile_options(ef_drivers PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_chipdrivers
-  ChipDrivers/Src/lsm6dsr.c
-  ChipDrivers/Src/pmw3901.c
-  ChipDrivers/Src/st7789.c
-  ChipDrivers/Src/vl53l0x.c
-  ChipDrivers/Src/w25q128.c
+  cmake/ChipDrivers/Src/lsm6dsr.c
+  cmake/ChipDrivers/Src/pmw3901.c
+  cmake/ChipDrivers/Src/st7789.c
+  cmake/ChipDrivers/Src/vl53l0x.c
+  cmake/ChipDrivers/Src/w25q128.c
 )
 
-target_include_directories(ef_chipdrivers PUBLIC ChipDrivers/Inc)
+target_include_directories(ef_chipdrivers PUBLIC cmake/ChipDrivers/Inc)
 target_compile_options(ef_chipdrivers PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_boarddevices
   BoardDevices/Src/board_button.c
   BoardDevices/Src/board_console.c
+  BoardDevices/Src/board_encoder.c
   BoardDevices/Src/board_flash.c
   BoardDevices/Src/board_imu.c
   BoardDevices/Src/board_lcd.c
@@ -92,6 +94,7 @@ target_compile_options(ef_boarddevices PRIVATE ${MSPM0_COMPILE_OPTIONS})
 add_library(ef_components
   Components/Src/ef_component_placeholder.c
   Components/Src/ef_button.c
+  Components/Src/ef_lowpass.c
 )
 
 target_include_directories(ef_components PUBLIC Components/Inc)
@@ -124,6 +127,7 @@ add_executable(app.elf
 target_compile_options(app.elf PRIVATE ${MSPM0_COMPILE_OPTIONS})
 target_link_libraries(app.elf PRIVATE
   ef_app
+  ef_boarddevices
   ef_platform
   ef_services
   ${DRIVERLIB}

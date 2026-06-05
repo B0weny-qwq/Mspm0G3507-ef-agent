@@ -1,5 +1,7 @@
 #include "ef_scheduler.h"
 
+/* 简单双态调度器：由 SysTick 累积周期，到期后在前台主循环执行任务。 */
+
 #define EF_SCHEDULER_MAX_TASKS 8U
 
 typedef struct {
@@ -14,6 +16,7 @@ static ef_task_state_t g_tasks[EF_SCHEDULER_MAX_TASKS];
 static size_t g_task_count;
 static ef_idle_fn_t g_idle;
 
+/* 装载任务表并初始化调度状态。 */
 void ef_scheduler_init(const ef_task_config_t *tasks, size_t task_count, ef_idle_fn_t idle)
 {
     if (task_count > EF_SCHEDULER_MAX_TASKS) {
@@ -31,6 +34,7 @@ void ef_scheduler_init(const ef_task_config_t *tasks, size_t task_count, ef_idle
     }
 }
 
+/* 在 1 ms 中断中推进各任务的周期计数。 */
 void ef_scheduler_tick_1ms_from_isr(void)
 {
     for (size_t i = 0U; i < g_task_count; i++) {
@@ -46,6 +50,7 @@ void ef_scheduler_tick_1ms_from_isr(void)
     }
 }
 
+/* 手动将某个任务标记为可运行。 */
 void ef_scheduler_mark_ready(size_t task_index)
 {
     if (task_index < g_task_count) {
@@ -53,6 +58,7 @@ void ef_scheduler_mark_ready(size_t task_index)
     }
 }
 
+/* 执行一轮前台任务扫描。 */
 void ef_scheduler_run_once(void)
 {
     for (size_t i = 0U; i < g_task_count; i++) {
@@ -65,6 +71,7 @@ void ef_scheduler_run_once(void)
     }
 }
 
+/* 持续运行调度器，并在空闲时调用 idle 回调。 */
 void ef_scheduler_run_forever(void)
 {
     while (1) {
