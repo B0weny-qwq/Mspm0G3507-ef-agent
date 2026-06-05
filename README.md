@@ -1,9 +1,10 @@
 # MSPM0G3507 EmbedForge Level 1.5 工程
 
 这是一个面向 MSPM0G3507 的 EmbedForge Level 1.5 裸机工程，当前适配
-天猛星 MSPM0G3507 核心板、TFT180/ST7789 屏幕、W25Q128 Flash、LSM6DSR IMU、PMW3901 光流和 VL53L0X ToF。工程使用 `SysTick 1ms`
+天猛星 MSPM0G3507 核心板、TFT180/ST7789 屏幕、W25Q128 Flash、LSM6DSR IMU、PMW3901 光流、VL53L0X ToF
+和两路 step/dir 编码器。工程使用 `SysTick 1ms`
 作为系统时基，提供轻量级协作式任务调度、事件回调、串口日志、LCD 调试页和
-SPI Flash/IMU/光流/ToF 板级 API，并把 PB21/BOOT 作为普通上拉按键输入。
+SPI Flash/IMU/光流/ToF/编码器板级 API，并把 PB21/BOOT 作为普通上拉按键输入。
 
 ## 架构边界
 
@@ -12,8 +13,8 @@ SPI Flash/IMU/光流/ToF 板级 API，并把 PB21/BOOT 作为普通上拉按键�
 - `ChipDrivers/`：ST7789/TFT180、W25Q128、LSM6DSR、PMW3901、VL53L0X 这类外部芯片协议驱动，不绑定板级引脚。
 - `BoardDevices/`：板级 LED、LCD、Flash、IMU、光流、ToF、Button、Console API，隐藏 CS、引脚、SPI/I2C 实例、地址和极性。
 - `Components/`：纯算法组件，例如按键 debounce/单击/双击/长按状态机，不依赖硬件、SDK、BoardDevices 或 Drivers。
-- `Services/`：轻量级 logger、event、scheduler。
-- `App/`：应用任务、事件绑定和启动编排，只依赖 BoardDevices/Services/Components。
+- `Services/`：轻量级 logger、event、scheduler；日志输出通过 BoardDevices 控制台，时间源由启动入口注入。
+- `App/`：应用任务、事件绑定和启动编排，只依赖 BoardDevices/Services/Components。当前拆分为 `app.c` 编排入口、`app_board_probe` 启动探测、`app_status_page` LCD 状态页、`app_encoder` 编码器速度采样和 `app_button` 按键事件模块。
 
 按 EmbedForge 项目标准核对，当前属于 Level 1.5：有外部芯片和基础服务，但不需要
 Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 `Components/`
@@ -33,10 +34,13 @@ Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 
 - `ef_pwm` 封装 TIMA0/TIMA1/TIMG6/TIMG12，当前注册 PWM3/PWM4/PWM7/PWM8/蜂鸣器/电机 PWM。
 - `ef_i2c` 封装 I2C0，同步支持 TOF 总线 write/read/write_read。
 - `ef_can` 封装 CANFD0，当前按 Classic CAN 发送 0-8 字节数据帧。
+- `ef_capture` 封装 TIMG7/TIMG8 输入捕获，编码器 step 脉冲通过定时器捕获中断计数，不使用 GPIO 外部中断。
+- `board_encoder_*` 绑定两路 step/dir 编码器：编码器 1 为 PA28 step + PA31 dir，编码器 2 为 PA26 step + PA27 dir；板级层处理安装方向反向后的速度极性。
+- `app_encoder` 以 50ms 周期读取编码器增量，用 `ef_lowpass` 一阶整数低通滤波后作为 step/50ms 速度显示；当前 `alpha=1/2`，响应量级约 100ms。
 - PB21/BOOT 按键按上拉、按下为低电平处理，`ef_button` 以 10ms 轮询检测 DOWN、UP、CLICK、DOUBLE、LONG。
 - App 层通过 `app_button_register_handler()` 分发按键事件，后续业务模块不需要直接读 PB21 或操作 `ef_button_t`。
-- 示例 App 显示纯黑白 LCD 调试页：Flash JEDEC ID、IMU/光流/ToF 初始化状态、右上角 30Hz 闪烁块、帧计数、按键状态、FPS 和错误行。
-- App 默认以 `EF_LOG_INFO` 初始化日志，启动阶段 `EF_LOGI` 会从 UART 输出；`EF_LOGE` 会同时输出到 UART 并刷新到 LCD 错误行，日志时间戳默认来自平台毫秒时基。
+- 示例 App 显示纯黑白 LCD 调试页：Flash JEDEC ID、IMU/光流/ToF 初始化状态、两路编码器速度、右上角 30Hz 闪烁块、按键状态和错误行。
+- App 默认以 `EF_LOG_INFO` 初始化日志，启动阶段 `EF_LOGI` 会从 UART 输出；`EF_LOGE` 会同时输出到 UART 并刷新到 LCD 错误行，日志时间戳由 `main()` 注入平台毫秒时基。
 
 ## 构建
 
@@ -60,13 +64,13 @@ cmake --build build
 
 ## 下载和串口
 
-推荐使用脚本集中管理手动下载命令。脚本不会自动执行 `sudo`、`chmod`、`usermod`
-或 udev 配置，也不会默认烧录；只有明确执行 `flash`、`flash-loop` 或 `daplink`
-时才会下载。
+推荐使用脚本集中管理下载命令。脚本不会自动执行 `sudo`、`chmod`、`usermod`
+或 udev 配置；`run` 会自动配置、构建、OpenOCD 下载、校验并复位目标板，适合 DAPLink 下载约 120s 的场景。
 
 ```sh
 ./scripts/manual_download.sh status
 ./scripts/manual_download.sh build
+./scripts/manual_download.sh run
 ./scripts/manual_download.sh dry-run
 ./scripts/manual_download.sh flash
 TRIES=60 SPEED=4000 ./scripts/manual_download.sh flash-loop
@@ -114,6 +118,8 @@ $HOME/.local/openocd-git/bin/openocd \
 - VL53L0X：I2C0，默认 7-bit 地址 `0x29`；XSHUT 和 GPIO1/INT 当前未分配，板级 API 走轮询/在线检测路径。
 - CANFD0：PA12 CAN_TX、PA13 CAN_RX。
 - PWM：PB12 TIMA0_C2、PB13 TIMA0_C3、PA29 TIMG6_C0、PB27 TIMG6_C1、PA14 TIMG12_C0、PB0 TIMA1_C0、PB1 TIMA1_C1。
+- 编码器 1：PA28 TIMG7_CCP0 捕获 step，PA31 GPIO 读取 dir。
+- 编码器 2：PA26 TIMG8_CCP0 捕获 step，PA27 GPIO 读取 dir。
 - 资源冲突策略：`SPI/I2C/UART/CAN/Debug` 优先级最高，编码器次之，`GPIO/PWM/Button/蜂鸣器` 最低；当前 PA29/PB27 已分配给 PWM7/PWM8，GPIO.IO7/GPIO.IO6 禁用。
 - LCD 当前参数：160x128，`x_offset=1`，`y_offset=2`，`MADCTL=0xA0`。
 - BOOT 按键：PB21，内部上拉，按下为低电平；只有和 EN 组合才进入强制下载，常态可作为普通按键。
@@ -143,3 +149,10 @@ PMW3901 的 counts 到实际位移需要结合安装高度、镜头、地面纹�
 这份 datasheet 没有公开完整测距初始化寄存器序列，因此 `board_tof_read_single()` 保留接口但
 需要后续接入 ST 官方 API 或已验证初始化表后才能返回有效距离。App 层只使用 `board_tof.h`，
 不要直接访问 `vl53l0x.h`、`ef_i2c.h` 或 TI DriverLib。
+
+## 编码器 API 注意事项
+
+当前两路编码器按 step/dir 信号处理，不做正交解码。step 由 TIMG7/TIMG8 输入捕获计数，
+dir 由 GPIO 在捕获回调中读取。`board_encoder_read_delta()` 返回上次读取以来的有符号 step 数；
+App 层通过 `app_encoder_tick_50ms()` 以 50ms 周期读取、滤波并刷新 LCD。由于机械安装相当于旋转 180 度，
+`board_encoder` 内部已经反向速度极性，业务层不要再次取反。

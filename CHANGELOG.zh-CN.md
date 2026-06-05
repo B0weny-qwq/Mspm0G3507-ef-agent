@@ -1,5 +1,16 @@
 # 更新日志
 
+## 2026-06-06
+
+- 按 EmbedForge Level 1.5 边界拆分 App 层：`app.c` 仅保留调度、事件和初始化编排，新增 `app_board_probe`、`app_status_page`、`app_encoder` 三个应用子模块。
+- 新增两路 step/dir 编码器读取：编码器 1 使用 PA28 step + PA31 dir，编码器 2 使用 PA26 step + PA27 dir；step 由 TIMG7/TIMG8 输入捕获计数，不使用 GPIO 外部中断。
+- 新增 `ef_capture` MCU 输入捕获抽象和 `board_encoder` 板级编码器 API，在 BoardDevices 层隐藏定时器、GPIO 和安装方向极性。
+- 新增 `ef_lowpass` 整数一阶低通组件，`app_encoder` 以 50ms 周期读取速度，当前 `alpha=1/2`，显示响应量级约 100ms。
+- 更新 LCD 状态页：显示 Flash/IMU/光流/ToF 初始化状态、两路编码器速度、按键状态和错误日志摘要。
+- 更新 `scripts/manual_download.sh run` 自动化流程，支持配置、构建、OpenOCD 下载、校验和 reset 一次完成，适配 DAPLink 长时间下载。
+- 使用 `graphify update . --no-cluster` 生成本地代码结构图，`graphify-out/` 作为本地缓存加入 `.gitignore`，不随源码提交。
+- 使用 `cmake --build build` 完成编译验证，生成 `build/app.elf`。
+
 ## 2026-05-25
 
 - 新增 LSM6DSR IMU 支持：`ChipDrivers` 层增加解耦的 `lsm6dsr` 协议驱动，`BoardDevices` 层增加 `board_imu` 板级 API。

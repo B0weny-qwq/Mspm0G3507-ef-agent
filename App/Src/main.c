@@ -1,7 +1,4 @@
 #include "app.h"
-#include "board_imu.h"
-#include "board_optical_flow.h"
-#include "board_tof.h"
 #include "ef_platform.h"
 #include "ef_log.h"
 #include "ef_scheduler.h"
@@ -29,21 +26,6 @@ int main(void)
 {
     ef_platform_init();
     ef_log_set_time_fn(ef_platform_millis);
-
-    /*
-     * 单模块初始化编译测试（默认全注释）：
-     * 使用方式：
-     * 1) 取消注释你要测试的某一行初始化；
-     * 2) 临时注释下面的 app_init/app_run，避免应用层再次初始化全部模块；
-     * 3) 编译下载观察日志/波形；
-     * 4) 测完后恢复 app_init/app_run。
-     *
-     * 说明：当前仓库可直接单测的传感器流程为 IMU、光流、ToF。
-     * “灰度”暂无独立 board_gray 模块，如需我可以再加灰度接口骨架。
-     */
-    // (void) board_imu_init();
-    // (void) board_optical_flow_init();
-    // (void) board_tof_init();
 
     app_init(ef_platform_idle);
     app_run();

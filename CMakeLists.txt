@@ -107,12 +107,15 @@ add_library(ef_services
 )
 
 target_include_directories(ef_services PUBLIC Services/Inc)
-target_link_libraries(ef_services PRIVATE ef_boarddevices ef_platform)
+target_link_libraries(ef_services PRIVATE ef_boarddevices)
 target_compile_options(ef_services PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_app
   App/Src/app.c
+  App/Src/app_board_probe.c
   App/Src/app_button.c
+  App/Src/app_encoder.c
+  App/Src/app_status_page.c
 )
 
 target_include_directories(ef_app PUBLIC App/Inc)

@@ -1,7 +1,6 @@
 #include "ef_log.h"
 
 #include "board_console.h"
-#include "ef_platform.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -36,13 +35,10 @@ static char ef_log_level_char(ef_log_level_t level)
     }
 }
 
-/* 初始化日志模块并设置默认时间源。 */
+/* 初始化日志模块。时间源由启动入口通过 ef_log_set_time_fn() 注入。 */
 void ef_log_init(ef_log_level_t level)
 {
     board_console_init();
-    if (g_time_fn == NULL) {
-        g_time_fn = ef_platform_millis;
-    }
     g_log_level = level;
 }
 
