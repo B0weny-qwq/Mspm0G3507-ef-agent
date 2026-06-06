@@ -6,14 +6,25 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(NOT DEFINED MSPM0_SDK_PATH)
   if(DEFINED ENV{MSPM0_SDK_PATH})
     set(MSPM0_SDK_PATH "$ENV{MSPM0_SDK_PATH}")
+  elseif(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../mspm0-sdk")
+    set(MSPM0_SDK_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../mspm0-sdk")
   else()
     set(MSPM0_SDK_PATH "$ENV{HOME}/SDK/TI/mspm0-sdk")
   endif()
 endif()
 
+file(TO_CMAKE_PATH "${MSPM0_SDK_PATH}" MSPM0_SDK_PATH)
 set(SDK "${MSPM0_SDK_PATH}")
 set(DRIVERLIB "${SDK}/source/ti/driverlib/lib/gcc/m0p/mspm0g1x0x_g3x0x/driverlib.a")
 set(LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/linker/mspm0g3507.lds")
+
+if(NOT EXISTS "${SDK}/source")
+  message(FATAL_ERROR "MSPM0_SDK_PATH is invalid: ${SDK}. Set MSPM0_SDK_PATH to the TI MSPM0 SDK root.")
+endif()
+
+if(NOT EXISTS "${DRIVERLIB}")
+  message(FATAL_ERROR "MSPM0 driverlib not found: ${DRIVERLIB}")
+endif()
 
 set(MSPM0_COMPILE_OPTIONS
   -mcpu=cortex-m0plus

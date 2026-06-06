@@ -72,6 +72,22 @@ cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake
 cmake --build build
 ```
 
+Windows 本地构建可以直接使用 PowerShell 脚本。脚本会优先查找同级目录 `../mspm0-sdk`，并自动使用
+STM32Cube 本地 bundle 中的 `arm-none-eabi-gcc` 和 Ninja；非默认安装路径可通过参数覆盖。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1
+```
+
+常用覆盖项：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1 `
+  -SdkPath C:\path\to\mspm0-sdk `
+  -ArmGccBin C:\path\to\arm-gnu-toolchain\bin `
+  -NinjaPath C:\path\to\ninja.exe
+```
+
 构建产物：
 
 - `build/app.elf`
