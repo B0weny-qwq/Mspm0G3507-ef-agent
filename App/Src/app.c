@@ -4,6 +4,7 @@
 #include "app_button.h"
 #include "app_encoder.h"
 #include "app_imu.h"
+#include "app_motor.h"
 #include "app_status_page.h"
 #include "board_lcd.h"
 #include "board_led.h"
@@ -41,6 +42,7 @@ enum {
     APP_IMU_TASK_MS = 5U,
     /** 编码器速度采样周期，单位 ms。 */
     APP_ENCODER_TASK_MS = 50U,
+    APP_MOTOR_TASK_MS = 50U,
     /** LED 心跳事件发布周期，单位 ms。 */
     APP_LED_TASK_MS = 500U,
 };
@@ -54,6 +56,7 @@ static void app_encoder_task(void *ctx);
 static void app_imu_task(void *ctx);
 static void app_led_task(void *ctx);
 static void app_lcd_task(void *ctx);
+static void app_motor_task(void *ctx);
 static void app_led_event_handler(ef_event_id_t id, const void *payload, void *ctx);
 
 /** 应用协作式调度任务表。 */
@@ -74,6 +77,12 @@ static const ef_task_config_t g_app_tasks[] = {
         .run = app_encoder_task,
         .ctx = 0,
         .period_ms = APP_ENCODER_TASK_MS,
+        .run_on_start = true,
+    },
+    {
+        .run = app_motor_task,
+        .ctx = 0,
+        .period_ms = APP_MOTOR_TASK_MS,
         .run_on_start = true,
     },
     {
@@ -131,6 +140,7 @@ void app_start(ef_idle_fn_t idle)
 
     app_board_probe_run();
     app_encoder_init();
+    app_motor_init();
     app_imu_init();
 
     ef_event_init(g_app_events, sizeof(g_app_events) / sizeof(g_app_events[0]));
@@ -189,6 +199,12 @@ static void app_imu_task(void *ctx)
 {
     (void) ctx;
     app_imu_tick_5ms();
+}
+
+static void app_motor_task(void *ctx)
+{
+    (void) ctx;
+    app_motor_tick_50ms();
 }
 
 /**

@@ -10,6 +10,7 @@
 | `app_board_probe` | 启动阶段 Flash、IMU、光流、ToF 在线探测 | 启动时一次 |
 | `app_status_page` | LCD 状态页、错误日志摘要、心跳块、脏矩形服务 | 100 ms |
 | `app_encoder` | 两路编码器速度读取、低通滤波和显示 | 50 ms |
+| `app_motor` | 两路电机速度环 PID，预留 PWM/EN 板级输出绑定 | 50 ms |
 | `app_imu` | LSM6DSR DMA 采样消费、实测 dt、启动零漂、低通预处理、32 帧 FIFO 和姿态缓存 | 5 ms |
 | `app_button` | BOOT 按键轮询、状态机和事件分发 | 10 ms |
 | `main.c` | Platform 启动胶水、日志/微秒时间源注入和 SysTick ISR | 系统入口 |

@@ -129,6 +129,7 @@ add_library(ef_app
   App/Src/app_button.c
   App/Src/app_encoder.c
   App/Src/app_imu.c
+  App/Src/app_motor.c
   App/Src/app_status_page.c
 )
 
