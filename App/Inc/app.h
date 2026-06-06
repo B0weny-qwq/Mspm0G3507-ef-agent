@@ -6,20 +6,20 @@ extern "C" {
 #endif
 
 /**
- * @brief 初始化应用层。
+ * @brief 启动应用层模块。
  *
- * 该函数负责初始化调度器、板级设备、日志和演示逻辑。
+ * 该函数负责初始化日志、板级设备、应用子模块、事件表和前台调度器。
  *
  * @param idle 调度器空闲回调，可为 `NULL`。
  */
-void app_init(void (*idle)(void));
+void app_start(void (*idle)(void));
 
 /**
- * @brief 运行应用主循环。
+ * @brief 进入应用调度主循环。
  *
- * 通常在 `main()` 中初始化完成后调用，不返回。
+ * 该函数会持续运行 `ef_scheduler_run_forever()`，通常不返回。
  */
-void app_run(void);
+void app_run_forever(void);
 
 #ifdef __cplusplus
 }

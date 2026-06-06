@@ -15,7 +15,7 @@
  * @brief 应用层总入口。
  *
  * @details
- * 本文件只负责模块初始化顺序、周期任务表和事件绑定。具体业务逻辑分别下沉到
+ * 本文件只负责模块启动顺序、周期任务表和事件绑定。具体业务逻辑分别下沉到
  * `app_board_probe`、`app_status_page`、`app_encoder` 和 `app_button`，避免主应用入口
  * 直接承载外设探测、显示绘制和速度计算细节。
  */
@@ -90,11 +90,11 @@ static const ef_event_binding_t g_app_events[] = {
 };
 
 /**
- * @brief 初始化应用层模块和前台调度器。
+ * @brief 启动应用层模块和前台调度器。
  *
  * @param idle 调度器空闲回调。
  */
-void app_init(ef_idle_fn_t idle)
+void app_start(ef_idle_fn_t idle)
 {
     app_status_page_reset();
 
@@ -129,9 +129,9 @@ void app_init(ef_idle_fn_t idle)
 }
 
 /**
- * @brief 进入应用主循环。
+ * @brief 进入应用调度主循环。
  */
-void app_run(void)
+void app_run_forever(void)
 {
     ef_scheduler_run_forever();
 }

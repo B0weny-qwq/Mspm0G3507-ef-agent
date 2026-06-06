@@ -5,20 +5,20 @@
 
 /**
  * @file main.c
- * @brief 工程入口与系统节拍中断入口。
+ * @brief 固件启动入口与系统节拍中断入口。
  *
  * @details
- * 工程当前策略说明：
- * 1) DMA 类型：硬件 DMA（MSPM0 DMA 控制器），用于 SPI_BOARD 异步发送路径。
- * 2) 中断策略：采用全局中断使能，配合外设局部中断源。
- *    - SysTick 全局系统节拍中断：驱动平台毫秒计时与调度器时基。
- *    - SPI_BOARD 外设中断：用于 DMA 完成事件处理（见 SPI 驱动实现）。
+ * `main()` 只做系统级启动胶水：
+ * 1) 初始化 Platform 层，建立时钟、pinmux、SysTick 和基础中断环境。
+ * 2) 将 Platform 毫秒计时注入日志服务。
+ * 3) 启动 App 层模块。
+ * 4) 进入 App 前台调度主循环。
  */
 
 /**
  * @brief 工程主入口。
  *
- * 初始化平台、日志时间基准以及应用层，然后进入主循环。
+ * 初始化平台、日志时间基准以及应用层，然后进入应用调度主循环。
  *
  * @return int 按嵌入式惯例该函数不应返回。
  */
@@ -27,8 +27,8 @@ int main(void)
     ef_platform_init();
     ef_log_set_time_fn(ef_platform_millis);
 
-    app_init(ef_platform_idle);
-    app_run();
+    app_start(ef_platform_idle);
+    app_run_forever();
 }
 
 /**
