@@ -10,6 +10,7 @@
 - 更新 `scripts/manual_download.sh run` 自动化流程，支持配置、构建、OpenOCD 下载、校验和 reset 一次完成，适配 DAPLink 长时间下载。
 - 使用 `graphify update . --no-cluster` 生成本地代码结构图，`graphify-out/` 作为本地缓存加入 `.gitignore`，不随源码提交。
 - 使用 `cmake --build build` 完成编译验证，生成 `build/app.elf`。
+- 补充应用层周期任务表、轮询路径表和调度/按钮/编码器/状态页状态机图，明确“轮询”对应的状态保存位置和转换关系。
 
 ## 2026-05-25
 

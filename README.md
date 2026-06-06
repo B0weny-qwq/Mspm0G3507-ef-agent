@@ -20,6 +20,11 @@ SPI Flash/IMU/光流/ToF/编码器板级 API，并把 PB21/BOOT 作为普通上�
 Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 `Components/`
 不直接包含 TI DriverLib/SysConfig 头文件，也不直接调用 `DL_*` API。
 
+应用层拆分、周期任务表、轮询路径表和状态机图见：
+
+- [doc/应用结构.md](doc/应用结构.md)
+- [doc/调度与状态机.md](doc/调度与状态机.md)
+
 ## 当前功能
 
 - `board_lcd_*` 提供黑白 1bpp 影子缓冲和脏区刷新接口。
