@@ -11,6 +11,7 @@
 - 使用 `graphify update . --no-cluster` 生成本地代码结构图，`graphify-out/` 作为本地缓存加入 `.gitignore`，不随源码提交。
 - 使用 `cmake --build build` 完成编译验证，生成 `build/app.elf`。
 - 补充应用层周期任务表、轮询路径表和调度/按钮/编码器/状态页状态机图，明确“轮询”对应的状态保存位置和转换关系。
+- 新增各层 README，并把 README、日志、graphify、本层 README、状态机转换图同步维护写入根 README 和本地 EmbedForge 项目标准 skill。
 
 ## 2026-05-25
 

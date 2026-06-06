@@ -25,6 +25,15 @@ Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 
 - [doc/应用结构.md](doc/应用结构.md)
 - [doc/调度与状态机.md](doc/调度与状态机.md)
 
+各层 README：
+
+- [App/README.md](App/README.md)
+- [BoardDevices/README.md](BoardDevices/README.md)
+- [Components/README.md](Components/README.md)
+- [Drivers/README.md](Drivers/README.md)
+- [Services/README.md](Services/README.md)
+- [Platform/README.md](Platform/README.md)
+
 ## 当前功能
 
 - `board_lcd_*` 提供黑白 1bpp 影子缓冲和脏区刷新接口。
@@ -66,6 +75,17 @@ cmake --build build
 - `build/app.elf`
 - `build/app.hex`
 - `build/app.bin`
+
+## 文档维护约定
+
+后续修改工程结构、任务调度、状态机、硬件资源或下载流程时，需要同步维护：
+
+- 根 `README.md`：更新架构边界、功能列表、构建/烧录流程和文档入口。
+- `CHANGELOG.zh-CN.md`：记录本次修改的功能、结构、验证方式。
+- `graphify` 本地结构图：使用 `graphify update . --no-cluster` 更新 `graphify-out/`，该目录作为本地缓存不提交。
+- 各层 README：更新 `App/`、`BoardDevices/`、`Components/`、`Drivers/`、`Services/`、`Platform/` 中受影响层的职责和接口说明。
+- 状态机文档：涉及轮询、调度、按键、编码器、滤波、控制模式或事件流时，更新任务周期表、轮询路径表和 Mermaid 状态转换图。
+- 中文 Doxygen：项目自有 public header 和关键 `.c` 模块需要说明职责、状态、时序、副作用和阻塞行为。
 
 ## 下载和串口
 
