@@ -107,6 +107,7 @@ add_library(ef_components
   Components/Src/ef_button.c
   Components/Src/ef_imu_attitude.c
   Components/Src/ef_lowpass.c
+  Components/Src/ef_pid.c
 )
 
 target_include_directories(ef_components PUBLIC Components/Inc)
