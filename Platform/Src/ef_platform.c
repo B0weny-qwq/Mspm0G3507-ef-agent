@@ -32,6 +32,27 @@ uint32_t ef_platform_millis(void)
     return now;
 }
 
+/* 读取毫秒计数和当前 SysTick 值，估算当前微秒时间戳。 */
+uint32_t ef_platform_micros(void)
+{
+    uint32_t millis;
+    uint32_t systick_value;
+    uint32_t systick_pending;
+    const uint32_t reload = SysTick->LOAD + 1U;
+    const uint32_t cycles_per_us = CPUCLK_FREQ / 1000000U;
+    const uint32_t irq_state = ef_platform_irq_save();
+
+    millis = g_platform_millis;
+    systick_value = SysTick->VAL;
+    systick_pending = (SCB->ICSR & SCB_ICSR_PENDSTSET_Msk) != 0U;
+    if (systick_pending && (systick_value > (reload / 2U))) {
+        millis++;
+    }
+    ef_platform_irq_restore(irq_state);
+
+    return (millis * 1000U) + ((reload - systick_value) / cycles_per_us);
+}
+
 /* 保存当前中断状态并关闭全局中断。 */
 uint32_t ef_platform_irq_save(void)
 {

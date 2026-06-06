@@ -57,6 +57,33 @@ uint8_t board_imu_read_who_am_i(void);
  */
 bool board_imu_read(board_imu_sample_t *sample);
 
+/**
+ * @brief 启动一次 IMU DMA 异步采样。
+ *
+ * 该接口只启动传输，不等待结果。完成后可用 `board_imu_read_async_result()` 取出一帧样本。
+ *
+ * @return `true` 启动成功。
+ * @return `false` IMU 未就绪、总线忙或已有未消费结果。
+ */
+bool board_imu_start_read_async(void);
+
+/**
+ * @brief 查询 IMU DMA 异步采样是否正在进行。
+ *
+ * @return `true` 采样传输仍在进行。
+ * @return `false` 当前没有进行中的 IMU DMA 采样。
+ */
+bool board_imu_async_busy(void);
+
+/**
+ * @brief 读取已完成的 IMU DMA 异步采样结果。
+ *
+ * @param sample 输出采样缓冲区。
+ * @return `true` 成功取出一帧样本。
+ * @return `false` 暂无完成结果或参数无效。
+ */
+bool board_imu_read_async_result(board_imu_sample_t *sample);
+
 #ifdef __cplusplus
 }
 #endif

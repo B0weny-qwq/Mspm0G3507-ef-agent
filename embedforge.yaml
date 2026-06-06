@@ -389,10 +389,10 @@ resources:
         chip: LSM6DSR
         bus: peripherals.spi.sensor
         default:
-          accel_odr_hz: 104
+          accel_odr_hz: 208
           accel_full_scale_g: 4
-          gyro_odr_hz: 104
-          gyro_full_scale_dps: 2000
+          gyro_odr_hz: 208
+          gyro_full_scale_dps: 1000
         pins:
           cs:
             port: GPIOA

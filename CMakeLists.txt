@@ -94,6 +94,7 @@ target_compile_options(ef_boarddevices PRIVATE ${MSPM0_COMPILE_OPTIONS})
 add_library(ef_components
   Components/Src/ef_component_placeholder.c
   Components/Src/ef_button.c
+  Components/Src/ef_imu_attitude.c
   Components/Src/ef_lowpass.c
 )
 
@@ -104,6 +105,7 @@ add_library(ef_services
   Services/Src/ef_event.c
   Services/Src/ef_log.c
   Services/Src/ef_scheduler.c
+  Services/Src/ef_time.c
 )
 
 target_include_directories(ef_services PUBLIC Services/Inc)
@@ -115,6 +117,7 @@ add_library(ef_app
   App/Src/app_board_probe.c
   App/Src/app_button.c
   App/Src/app_encoder.c
+  App/Src/app_imu.c
   App/Src/app_status_page.c
 )
 

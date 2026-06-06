@@ -2,6 +2,7 @@
 #include "ef_platform.h"
 #include "ef_log.h"
 #include "ef_scheduler.h"
+#include "ef_time.h"
 
 /**
  * @file main.c
@@ -26,6 +27,7 @@ int main(void)
 {
     ef_platform_init();
     ef_log_set_time_fn(ef_platform_millis);
+    ef_time_set_micros_fn(ef_platform_micros);
 
     app_start(ef_platform_idle);
     app_run_forever();

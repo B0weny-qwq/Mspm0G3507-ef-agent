@@ -10,7 +10,7 @@
 | `board_console` | UART 日志控制台 | `ef_uart` |
 | `board_encoder` | 两路 step/dir 编码器 | `ef_capture`、`ef_gpio`、`ef_platform` |
 | `board_flash` | W25Q128 Flash | `w25q128`、`ef_spi`、`ef_gpio` |
-| `board_imu` | LSM6DSR IMU | `lsm6dsr`、`ef_spi`、`ef_gpio` |
+| `board_imu` | LSM6DSR IMU，208Hz、±4g、±1000dps，SPI0 DMA burst 采样 | `lsm6dsr`、`ef_spi`、`ef_gpio` |
 | `board_lcd` | TFT180/ST7789 状态屏 | `st7789`、`ef_spi`、`ef_gpio` |
 | `board_led` | 板载 LED | `ef_gpio` |
 | `board_optical_flow` | PMW3901 光流 | `pmw3901`、`ef_spi`、`ef_gpio` |
@@ -22,3 +22,4 @@
 - 板级安装方向、片选极性、共享总线互斥在本层处理。
 - 新增板级设备时同步更新根 README、本 README、引脚文档和 changelog。
 - 如果设备有轮询或状态转换，补充状态机图到 `doc/`。
+- DMA SPI、传感器 data-ready 或芯片 FIFO 这类采样能力先在 Drivers/BoardDevices 落地，再向 App 暴露稳定语义 API。

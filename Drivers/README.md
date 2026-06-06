@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | `ef_gpio` | GPIO 输入输出 | 板级片选、按键、LED、方向输入 |
 | `ef_uart` | UART 同步输出 | 控制台日志 |
-| `ef_spi` | SPI 同步/异步传输 | LCD、Flash、IMU、光流 |
+| `ef_spi` | SPI 同步/异步传输 | SPI1 LCD/Flash、SPI0 IMU/光流；支持 DMA 全双工异步传输 |
 | `ef_i2c` | I2C 同步读写 | VL53L0X ToF |
 | `ef_pwm` | PWM 占空比和启停 | 电机、蜂鸣器、PWM 输出 |
 | `ef_can` | Classic CAN 帧发送 | CANFD0 当前按 Classic CAN 使用 |

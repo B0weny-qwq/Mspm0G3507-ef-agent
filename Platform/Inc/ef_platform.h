@@ -25,6 +25,15 @@ void ef_platform_tick_1ms_from_isr(void);
 uint32_t ef_platform_millis(void);
 
 /**
+ * @brief 获取平台微秒计数。
+ *
+ * 该函数基于毫秒计数和当前 SysTick 计数估算启动以来的微秒数，用于前台任务测量实际 dt。
+ *
+ * @return uint32_t 自启动以来的微秒数，约 71 分钟回绕一次。
+ */
+uint32_t ef_platform_micros(void);
+
+/**
  * @brief 进入全局临界区并返回原中断状态。
  *
  * @return uint32_t 原 PRIMASK 状态，应传给 `ef_platform_irq_restore()`。

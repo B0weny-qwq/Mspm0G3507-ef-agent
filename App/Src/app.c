@@ -3,6 +3,7 @@
 #include "app_board_probe.h"
 #include "app_button.h"
 #include "app_encoder.h"
+#include "app_imu.h"
 #include "app_status_page.h"
 #include "board_lcd.h"
 #include "board_led.h"
@@ -35,7 +36,9 @@ enum {
     /** 按键状态机扫描周期，单位 ms。 */
     APP_BUTTON_TASK_MS = 10U,
     /** LCD 状态页服务周期，单位 ms。 */
-    APP_LCD_TASK_MS = 33U,
+    APP_LCD_TASK_MS = 100U,
+    /** IMU 采样周期，单位 ms。 */
+    APP_IMU_TASK_MS = 5U,
     /** 编码器速度采样周期，单位 ms。 */
     APP_ENCODER_TASK_MS = 50U,
     /** LED 心跳事件发布周期，单位 ms。 */
@@ -48,6 +51,7 @@ static const char *TAG = "app";
 static void app_button_task(void *ctx);
 static void app_button_status_handler(app_button_id_t id, ef_button_event_t event, void *ctx);
 static void app_encoder_task(void *ctx);
+static void app_imu_task(void *ctx);
 static void app_led_task(void *ctx);
 static void app_lcd_task(void *ctx);
 static void app_led_event_handler(ef_event_id_t id, const void *payload, void *ctx);
@@ -70,6 +74,12 @@ static const ef_task_config_t g_app_tasks[] = {
         .run = app_encoder_task,
         .ctx = 0,
         .period_ms = APP_ENCODER_TASK_MS,
+        .run_on_start = true,
+    },
+    {
+        .run = app_imu_task,
+        .ctx = 0,
+        .period_ms = APP_IMU_TASK_MS,
         .run_on_start = true,
     },
     {
@@ -121,6 +131,7 @@ void app_start(ef_idle_fn_t idle)
 
     app_board_probe_run();
     app_encoder_init();
+    app_imu_init();
 
     ef_event_init(g_app_events, sizeof(g_app_events) / sizeof(g_app_events[0]));
     EF_LOGI("init", "event ok");
@@ -167,6 +178,17 @@ static void app_encoder_task(void *ctx)
 {
     (void) ctx;
     app_encoder_tick_50ms();
+}
+
+/**
+ * @brief 周期采样 IMU 并写入应用层 FIFO。
+ *
+ * @param ctx 任务上下文，当前未使用。
+ */
+static void app_imu_task(void *ctx)
+{
+    (void) ctx;
+    app_imu_tick_5ms();
 }
 
 /**

@@ -2,6 +2,13 @@
 
 ## 2026-06-06
 
+- 准备 LSM6DSR IMU 数据处理链路：`app_imu` 新增 5ms 采样、实测 `dt_us`、200 帧启动零漂、32 帧环形 FIFO、整数低通预处理和 Q15/Q10 姿态输出结构。
+- 新增 `Components/ef_imu_attitude` 纯算法组件，在 M0+ 上用整数完成 gyro 四元数积分、accel 重力方向互补校正、四元数归一化、Q10 欧拉角输出和 Q15 四元数输出。
+- 扩展 `Drivers/ef_spi`，新增 SPI0/SPI1 DMA 全双工异步传输；`board_imu` 使用 SPI0 DMA burst 读取 LSM6DSR 连续输出寄存器，并保留同步读取 fallback。
+- 新增 `Services/ef_time` 微秒时间抽象，由 `main()` 注入 `ef_platform_micros()`，避免 App 业务模块直接依赖 Platform。
+- 调整 LSM6DSR 初始化为 208Hz、加速度计 ±4g、陀螺仪 ±1000dps，并写入 `CTRL4_C/CTRL6_C/CTRL7_G/CTRL9_XL` 关闭 I2C/I3C、启用 gyro LPF1、保持高性能模式。
+- 将 LCD 状态页服务周期改为 100ms，屏幕刷新/心跳显示为 10Hz，给 IMU 5ms 采样和后续控制任务让出前台时间。
+- 新增 [doc/IMU数据处理.md](doc/IMU数据处理.md)，记录 DMA SPI、Q15 四元数、启动零漂、互补滤波、低通滤波和 Q10 欧拉角的数据路径。
 - 按 EmbedForge Level 1.5 边界拆分 App 层：`app.c` 仅保留调度、事件和初始化编排，新增 `app_board_probe`、`app_status_page`、`app_encoder` 三个应用子模块。
 - 新增两路 step/dir 编码器读取：编码器 1 使用 PA28 step + PA31 dir，编码器 2 使用 PA26 step + PA27 dir；step 由 TIMG7/TIMG8 输入捕获计数，不使用 GPIO 外部中断。
 - 新增 `ef_capture` MCU 输入捕获抽象和 `board_encoder` 板级编码器 API，在 BoardDevices 层隐藏定时器、GPIO 和安装方向极性。

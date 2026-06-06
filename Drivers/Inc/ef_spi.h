@@ -20,7 +20,7 @@ typedef enum {
 } ef_spi_id_t;
 
 /**
- * @brief SPI 异步发送完成回调。
+ * @brief SPI 异步传输完成回调。
  *
  * @param id SPI 总线编号。
  * @param ctx 用户上下文。
@@ -77,6 +77,28 @@ void ef_spi_transfer(ef_spi_id_t id, const uint8_t *tx, uint8_t *rx, size_t len)
  * @return `false` 总线忙或参数无效。
  */
 bool ef_spi_write_async(ef_spi_id_t id, const uint8_t *data, size_t len, ef_spi_async_callback_t callback, void *ctx);
+
+/**
+ * @brief 启动一次异步 SPI 全双工传输。
+ *
+ * 发送缓冲区和接收缓冲区均可为 NULL。`tx` 为 NULL 时发送 0xFF；`rx` 为 NULL 时接收数据丢弃。
+ * 缓冲区在回调触发前必须保持有效。
+ *
+ * @param id SPI 总线编号。
+ * @param tx 发送缓冲区，可为 `NULL`。
+ * @param rx 接收缓冲区，可为 `NULL`。
+ * @param len 传输长度。
+ * @param callback 完成回调。
+ * @param ctx 用户上下文。
+ * @return `true` 启动成功。
+ * @return `false` 总线忙或参数无效。
+ */
+bool ef_spi_transfer_async(ef_spi_id_t id,
+    const uint8_t *tx,
+    uint8_t *rx,
+    size_t len,
+    ef_spi_async_callback_t callback,
+    void *ctx);
 
 /**
  * @brief 查询 SPI 总线是否忙。

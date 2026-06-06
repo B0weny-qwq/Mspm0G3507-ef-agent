@@ -4,6 +4,10 @@
 #define LSM6DSR_REG_CTRL1_XL 0x10U
 #define LSM6DSR_REG_CTRL2_G 0x11U
 #define LSM6DSR_REG_CTRL3_C 0x12U
+#define LSM6DSR_REG_CTRL4_C 0x13U
+#define LSM6DSR_REG_CTRL6_C 0x15U
+#define LSM6DSR_REG_CTRL7_G 0x16U
+#define LSM6DSR_REG_CTRL9_XL 0x18U
 #define LSM6DSR_REG_STATUS 0x1EU
 #define LSM6DSR_REG_OUT_TEMP_L 0x20U
 
@@ -11,13 +15,16 @@
 #define LSM6DSR_CTRL3_BDU 0x40U
 #define LSM6DSR_CTRL3_IF_INC 0x04U
 #define LSM6DSR_CTRL3_SW_RESET 0x01U
+#define LSM6DSR_CTRL4_I2C_DISABLE 0x04U
+#define LSM6DSR_CTRL4_LPF1_SEL_G 0x02U
+#define LSM6DSR_CTRL9_I3C_DISABLE 0x02U
 #define LSM6DSR_RESET_POLL_MAX 20U
 
 static const lsm6dsr_config_t g_lsm6dsr_default_config = {
-    .accel_odr = LSM6DSR_ACCEL_ODR_104HZ,
+    .accel_odr = LSM6DSR_ACCEL_ODR_208HZ,
     .accel_fs = LSM6DSR_ACCEL_FS_4G,
-    .gyro_odr = LSM6DSR_GYRO_ODR_104HZ,
-    .gyro_fs = LSM6DSR_GYRO_FS_2000DPS,
+    .gyro_odr = LSM6DSR_GYRO_ODR_208HZ,
+    .gyro_fs = LSM6DSR_GYRO_FS_1000DPS,
 };
 
 static bool lsm6dsr_has_bus(const lsm6dsr_t *dev)
@@ -164,6 +171,22 @@ bool lsm6dsr_init(lsm6dsr_t *dev, const lsm6dsr_bus_t *bus, const lsm6dsr_config
         return false;
     }
 
+    if (!lsm6dsr_write_reg(dev, LSM6DSR_REG_CTRL4_C, LSM6DSR_CTRL4_I2C_DISABLE | LSM6DSR_CTRL4_LPF1_SEL_G)) {
+        return false;
+    }
+
+    if (!lsm6dsr_write_reg(dev, LSM6DSR_REG_CTRL6_C, 0x00U)) {
+        return false;
+    }
+
+    if (!lsm6dsr_write_reg(dev, LSM6DSR_REG_CTRL7_G, 0x00U)) {
+        return false;
+    }
+
+    if (!lsm6dsr_write_reg(dev, LSM6DSR_REG_CTRL9_XL, LSM6DSR_CTRL9_I3C_DISABLE)) {
+        return false;
+    }
+
     if (!lsm6dsr_write_reg(dev, LSM6DSR_REG_CTRL1_XL,
             (uint8_t) (((uint8_t) selected_config.accel_odr << 4) |
                        (lsm6dsr_accel_fs_bits(selected_config.accel_fs) << 2)))) {
@@ -199,6 +222,19 @@ bool lsm6dsr_read_raw(lsm6dsr_t *dev, lsm6dsr_raw_sample_t *sample)
     }
 
     lsm6dsr_read_regs(dev, LSM6DSR_REG_OUT_TEMP_L, data, sizeof(data));
+    if (!lsm6dsr_decode_raw_sample(data, sizeof(data), lsm6dsr_read_status(dev), sample)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool lsm6dsr_decode_raw_sample(const uint8_t *data, size_t len, uint8_t status, lsm6dsr_raw_sample_t *sample)
+{
+    if ((data == NULL) || (sample == NULL) || (len < 14U)) {
+        return false;
+    }
+
     sample->temperature = lsm6dsr_i16_le(data[0], data[1]);
     sample->gyro[0] = lsm6dsr_i16_le(data[2], data[3]);
     sample->gyro[1] = lsm6dsr_i16_le(data[4], data[5]);
@@ -206,7 +242,7 @@ bool lsm6dsr_read_raw(lsm6dsr_t *dev, lsm6dsr_raw_sample_t *sample)
     sample->accel[0] = lsm6dsr_i16_le(data[8], data[9]);
     sample->accel[1] = lsm6dsr_i16_le(data[10], data[11]);
     sample->accel[2] = lsm6dsr_i16_le(data[12], data[13]);
-    sample->status = lsm6dsr_read_status(dev);
+    sample->status = status;
 
     return true;
 }

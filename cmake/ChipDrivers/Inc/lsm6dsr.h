@@ -143,7 +143,7 @@ typedef struct {
  *
  * @param dev 设备对象，不能为 NULL。
  * @param bus SPI 总线回调，select 和 transfer 不能为 NULL。
- * @param config 采样配置；为 NULL 时使用 104 Hz、加速度计 4 g、陀螺仪 2000 dps。
+ * @param config 采样配置；为 NULL 时使用 208 Hz、加速度计 4 g、陀螺仪 1000 dps。
  * @return true 初始化成功。
  * @return false 参数无效、WHO_AM_I 不匹配或配置写入失败。
  */
@@ -176,6 +176,21 @@ uint8_t lsm6dsr_read_status(lsm6dsr_t *dev);
  * @return false 参数无效或设备尚未就绪。
  */
 bool lsm6dsr_read_raw(lsm6dsr_t *dev, lsm6dsr_raw_sample_t *sample);
+
+/**
+ * @brief 从连续输出寄存器字节解码原始采样。
+ *
+ * 输入数据必须从 `OUT_TEMP_L` 开始连续 14 字节，布局为温度、陀螺仪 XYZ、加速度计 XYZ。
+ * 该函数只解析字节，不访问硬件。
+ *
+ * @param data 连续寄存器数据。
+ * @param len 数据长度，至少 14。
+ * @param status STATUS_REG 值。
+ * @param sample 输出采样。
+ * @return true 解码成功。
+ * @return false 参数无效或长度不足。
+ */
+bool lsm6dsr_decode_raw_sample(const uint8_t *data, size_t len, uint8_t status, lsm6dsr_raw_sample_t *sample);
 
 /**
  * @brief 将加速度计原始值换算为 ug。

@@ -42,12 +42,25 @@ if (board_imu_init() && board_imu_read(&sample)) {
 
 `board_imu_init()` 当前使用以下默认配置：
 
-- 加速度计：104 Hz，±4 g。
-- 陀螺仪：104 Hz，±2000 dps。
+- 加速度计：208 Hz，±4 g。
+- 陀螺仪：208 Hz，±1000 dps。
 - `CTRL3_C`：启用 BDU 和 IF_INC。
-- 初始化流程：片选拉高、WHO_AM_I 校验、软件复位、写 CTRL3_C、写 CTRL1_XL、写 CTRL2_G。
+- `CTRL4_C`：关闭 I2C，并启用陀螺仪 LPF1 选择。
+- `CTRL6_C` / `CTRL7_G`：保持高性能模式，暂不启用额外高通。
+- `CTRL9_XL`：关闭 I3C，当前只使用主 SPI。
+- 初始化流程：片选拉高、WHO_AM_I 校验、软件复位、写 CTRL3_C/CTRL4_C/CTRL6_C/CTRL7_G/CTRL9_XL、写 CTRL1_XL、写 CTRL2_G。
 
-`board_imu_read()` 返回：
+| 寄存器 | 地址 | 当前值 | 作用 |
+| --- | ---: | ---: | --- |
+| `CTRL3_C` | `0x12` | `0x44` | `BDU=1`、`IF_INC=1` |
+| `CTRL4_C` | `0x13` | `0x06` | `I2C_disable=1`、`LPF1_SEL_G=1` |
+| `CTRL6_C` | `0x15` | `0x00` | 加速度计高性能，默认滤波配置 |
+| `CTRL7_G` | `0x16` | `0x00` | 陀螺仪高性能，HPF 关闭 |
+| `CTRL9_XL` | `0x18` | `0x02` | `I3C_disable=1` |
+| `CTRL1_XL` | `0x10` | `0x58` | 加速度计 208 Hz、±4 g |
+| `CTRL2_G` | `0x11` | `0x58` | 陀螺仪 208 Hz、±1000 dps |
+
+`board_imu_read()` 是同步 fallback；`board_imu_start_read_async()` / `board_imu_read_async_result()` 是当前 App 使用的 SPI0 DMA burst 采样路径。两条路径返回同样的 `board_imu_sample_t`：
 
 - `accel_raw[3]`、`gyro_raw[3]`、`temperature_raw`：芯片原始 16 位二补码。
 - `accel_ug[3]`：整数换算后的 ug。
@@ -65,4 +78,5 @@ App 默认以 `EF_LOG_INFO` 初始化日志，INFO 级启动日志会从 UART0 �
 
 - SPI0 还分配给 PMW3901 光流传感器，两个设备必须互斥片选。`board_imu_select()` 会在选中 IMU 前拉高光流 CS。
 - LSM6DSR 数据手册说明主 SPI 支持 Mode 0 和 Mode 3；当前按文档时序图和空闲高说明使用 Mode 3。
-- 当前没有启用 FIFO、中断、嵌入式算法和 OIS 辅助 SPI；后续如果启用，应继续放在 `ChipDrivers` 内实现协议，`BoardDevices` 只绑定板级实例。
+- 当前没有启用芯片内部 FIFO、中断、嵌入式算法和 OIS 辅助 SPI；App 层已有 32 帧环形 FIFO 用于上层处理。
+- SPI0 DMA burst 和姿态解算路径见 [../IMU数据处理.md](../IMU数据处理.md)。

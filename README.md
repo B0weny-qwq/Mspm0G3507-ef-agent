@@ -12,9 +12,9 @@ SPI Flash/IMU/光流/ToF/编码器板级 API，并把 PB21/BOOT 作为普通上�
 - `Drivers/`：GPIO、UART、SPI、PWM、I2C、CAN 的 MCU 外设抽象，TI DriverLib 只在这里和 `Platform/` 使用。
 - `ChipDrivers/`：ST7789/TFT180、W25Q128、LSM6DSR、PMW3901、VL53L0X 这类外部芯片协议驱动，不绑定板级引脚。
 - `BoardDevices/`：板级 LED、LCD、Flash、IMU、光流、ToF、Button、Console API，隐藏 CS、引脚、SPI/I2C 实例、地址和极性。
-- `Components/`：纯算法组件，例如按键 debounce/单击/双击/长按状态机，不依赖硬件、SDK、BoardDevices 或 Drivers。
-- `Services/`：轻量级 logger、event、scheduler；日志输出通过 BoardDevices 控制台，时间源由启动入口注入。
-- `App/`：应用任务、事件绑定和启动编排，只依赖 BoardDevices/Services/Components。当前拆分为 `app.c` 编排入口、`app_board_probe` 启动探测、`app_status_page` LCD 状态页、`app_encoder` 编码器速度采样和 `app_button` 按键事件模块。
+- `Components/`：纯算法组件，例如按键 debounce/单击/双击/长按状态机、整数低通和 IMU 姿态滤波，不依赖硬件、SDK、BoardDevices 或 Drivers。
+- `Services/`：轻量级 logger、event、scheduler、time；日志输出通过 BoardDevices 控制台，时间源由启动入口注入。
+- `App/`：应用任务、事件绑定和启动编排，只依赖 BoardDevices/Services/Components。当前拆分为 `app.c` 编排入口、`app_board_probe` 启动探测、`app_status_page` LCD 状态页、`app_encoder` 编码器速度采样、`app_imu` IMU 采样/FIFO 和 `app_button` 按键事件模块。
 
 按 EmbedForge 项目标准核对，当前属于 Level 1.5：有外部芯片和基础服务，但不需要
 Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 `Components/`
@@ -24,6 +24,7 @@ Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 
 
 - [doc/应用结构.md](doc/应用结构.md)
 - [doc/调度与状态机.md](doc/调度与状态机.md)
+- [doc/IMU数据处理.md](doc/IMU数据处理.md)
 
 各层 README：
 
@@ -38,11 +39,12 @@ Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 
 
 - `board_lcd_*` 提供黑白 1bpp 影子缓冲和脏区刷新接口。
 - LCD 底层通过 SPI1 TX/RX 双 DMA 写入 TFT，RX DMA 用于清空 SPI RX FIFO，避免长传输溢出。
-- `board_lcd_service()` 是统一 flush 入口，当前应用以 33ms 周期调用，刷新上限约 30Hz。
+- `board_lcd_service()` 是统一 flush 入口，当前应用以 100ms 周期调用，屏幕调试页刷新为 10Hz。
 - LCD RAM 资源约为 2.5KB 影子缓冲加 320B 单行 RGB565 输出缓冲，不使用全屏 RGB framebuffer。
 - `board_flash_*` 提供 W25Q128 JEDEC ID、读、写、4K 擦除、64K 擦除和整片擦除 API。
 - LCD 和 W25Q128 共用 SPI1；Flash 字节传输会等待 LCD DMA 空闲后再访问 SPI，避免总线冲突。
-- `board_imu_*` 通过 SPI0 读取 LSM6DSR，默认 104Hz、加速度计 ±4g、陀螺仪 ±2000dps，并提供原始值和整数单位换算值。
+- `board_imu_*` 通过 SPI0 读取 LSM6DSR，默认 208Hz、加速度计 ±4g、陀螺仪 ±1000dps；当前支持 SPI0 DMA burst 异步采样，并保留同步读取 fallback。
+- `app_imu` 以 5ms 周期读取 IMU，使用 `ef_time_micros()` 记录实测 `dt_us`，完成 200 帧启动零漂、整数低通预处理、32 帧环形 FIFO，并通过 `ef_imu_attitude` 输出 Q15 四元数和 Q10 欧拉角；控制器输入约定 Q10/Q12。
 - `board_optical_flow_*` 通过 SPI0 读取 PMW3901，初始化时写入光流优化寄存器表，并提供 delta、motion、SQUAL 和 shutter 调试值。
 - `board_tof_*` 通过 I2C0 访问 VL53L0X，默认 7-bit 地址 `0x29`，当前先完成 datasheet reference register 在线检测。
 - `ef_pwm` 封装 TIMA0/TIMA1/TIMG6/TIMG12，当前注册 PWM3/PWM4/PWM7/PWM8/蜂鸣器/电机 PWM。
@@ -53,7 +55,7 @@ Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 
 - `app_encoder` 以 50ms 周期读取编码器增量，用 `ef_lowpass` 一阶整数低通滤波后作为 step/50ms 速度显示；当前 `alpha=1/2`，响应量级约 100ms。
 - PB21/BOOT 按键按上拉、按下为低电平处理，`ef_button` 以 10ms 轮询检测 DOWN、UP、CLICK、DOUBLE、LONG。
 - App 层通过 `app_button_register_handler()` 分发按键事件，后续业务模块不需要直接读 PB21 或操作 `ef_button_t`。
-- 示例 App 显示纯黑白 LCD 调试页：Flash JEDEC ID、IMU/光流/ToF 初始化状态、两路编码器速度、右上角 30Hz 闪烁块、按键状态和错误行。
+- 示例 App 显示纯黑白 LCD 调试页：Flash JEDEC ID、IMU/光流/ToF 初始化状态、两路编码器速度、右上角 10Hz 心跳块、按键状态和错误行。
 - App 默认以 `EF_LOG_INFO` 初始化日志，启动阶段 `EF_LOGI` 会从 UART 输出；`EF_LOGE` 会同时输出到 UART 并刷新到 LCD 错误行，日志时间戳由 `main()` 注入平台毫秒时基。
 
 ## 构建
@@ -160,6 +162,10 @@ $HOME/.local/openocd-git/bin/openocd \
 `board_imu_read()` 会在未初始化时尝试自动初始化。若 LCD 调试页显示 `IMU: FAIL`，优先检查
 SPI0 引脚、PA17 片选、供电和 LSM6DSR WHO_AM_I 是否能读到 `0x6B`。App 层只使用
 `board_imu.h`，不要直接访问 `lsm6dsr.h`、`ef_spi.h` 或 TI DriverLib。
+
+当前姿态处理链路见 [doc/IMU数据处理.md](doc/IMU数据处理.md)。SPI0 DMA burst 采样已经在 Drivers/BoardDevices 接入；
+整数三角函数精度仍可后续增强。App 层已经固定 FIFO、零漂、低通、Q15 四元数、Q10 欧拉角和实测 `dt` 边界，
+不要让 App 直接操作 DMA/SPI 寄存器。
 
 ## 光流 API 注意事项
 

@@ -7,7 +7,8 @@
 | 组件 | 职责 | 状态 |
 | --- | --- | --- |
 | `ef_button` | 按键消抖、单击、双击、长按识别 | `ef_button_t` 保存稳定电平、消抖时间和 click/long 状态 |
-| `ef_lowpass` | 整数一阶低通滤波 | `ef_lowpass_i32_t` 保存当前输出值、滤波强度和零点阈值 |
+| `ef_lowpass` | 整数一阶低通滤波 | `ef_lowpass_i32_t` 保存当前输出值、滤波强度和零点阈值；当前用于编码器速度和 IMU raw 预处理 |
+| `ef_imu_attitude` | M0+ 整数 IMU 姿态滤波 | Q15 四元数、整数归一化、Q10 欧拉角、gyro 积分、accel 重力方向互补校正 |
 | `ef_component_placeholder` | 占位组件 | 后续可删除或替换 |
 
 ## 规则
@@ -15,3 +16,4 @@
 - 组件接口只接收数据和配置，不读取硬件。
 - 状态机必须在头文件或 `doc/` 中说明状态、输入、输出和转换条件。
 - 修改算法参数或状态转换时，同步更新使用它的 App/BoardDevices 文档。
+- IMU 姿态算法必须保持纯算法，不直接 include `board_imu.h`。
