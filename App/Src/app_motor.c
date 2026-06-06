@@ -6,25 +6,50 @@
 
 #include <stddef.h>
 
+/**
+ * @file app_motor.c
+ * @brief 应用层电机速度环。
+ *
+ * 本模块只读取 App/BoardDevices 已保存的编码器速度，并把 PID 输出交给业务绑定的
+ * 输出回调。PWM、EN、方向 GPIO 和底层定时器资源不在这里绑定。
+ */
+
 enum {
+    /** 默认 Q8 比例增益。 */
     APP_MOTOR_DEFAULT_KP_Q8 = 64,
+    /** 默认 Q8 积分增益。 */
     APP_MOTOR_DEFAULT_KI_Q8 = 4,
+    /** 默认 Q8 微分增益。 */
     APP_MOTOR_DEFAULT_KD_Q8 = 0,
+    /** 默认积分限幅，单位为 step/50ms 误差样本。 */
     APP_MOTOR_DEFAULT_INTEGRAL_LIMIT = 8000,
+    /** 默认输出限幅，单位 permille。 */
     APP_MOTOR_DEFAULT_OUTPUT_LIMIT_PERMILLE = 1000,
 };
 
+/**
+ * @brief 单路电机速度环状态。
+ */
 typedef struct {
+    /** 该电机对应的编码器编号。 */
     board_encoder_id_t encoder;
+    /** 纯算法 PID 状态。 */
     ef_pid_i32_t pid;
+    /** 输出回调；为空时只保存 PID 结果，不驱动硬件。 */
     app_motor_output_fn_t output_fn;
+    /** 输出回调用户上下文。 */
     void *output_ctx;
+    /** 目标速度，单位 step/50ms。 */
     int32_t target_speed_50ms;
+    /** 最近一次测量速度，单位 step/50ms。 */
     int32_t measured_speed_50ms;
+    /** 最近一次输出，单位 permille。 */
     int16_t output_permille;
+    /** 速度环是否使能。 */
     bool enabled;
 } app_motor_state_t;
 
+/** 两路电机速度环状态。 */
 static app_motor_state_t g_motors[APP_MOTOR_COUNT];
 
 static app_motor_state_t *app_motor_state(app_motor_id_t id);
@@ -32,6 +57,9 @@ static ef_pid_i32_config_t app_motor_pid_config_to_component(const app_motor_pid
 static void app_motor_reset_loop(app_motor_state_t *motor);
 static void app_motor_apply_output(app_motor_id_t id, app_motor_state_t *motor);
 
+/**
+ * @brief 初始化两路速度环状态。
+ */
 void app_motor_init(void)
 {
     const app_motor_pid_config_t default_pid = {
@@ -58,6 +86,9 @@ void app_motor_init(void)
     EF_LOGI("motor", "speed pid reserved, outputs unbound");
 }
 
+/**
+ * @brief 50 ms 周期更新速度环。
+ */
 void app_motor_tick_50ms(void)
 {
     for (uint32_t i = 0U; i < (uint32_t) APP_MOTOR_COUNT; i++) {
@@ -78,6 +109,9 @@ void app_motor_tick_50ms(void)
     }
 }
 
+/**
+ * @brief 设置单路 PID 参数并复位该路控制历史。
+ */
 bool app_motor_set_pid_config(app_motor_id_t id, const app_motor_pid_config_t *config)
 {
     app_motor_state_t *const motor = app_motor_state(id);
@@ -94,6 +128,9 @@ bool app_motor_set_pid_config(app_motor_id_t id, const app_motor_pid_config_t *c
     return true;
 }
 
+/**
+ * @brief 绑定单路输出回调，并立即同步当前输出状态。
+ */
 bool app_motor_set_output(app_motor_id_t id, app_motor_output_fn_t output, void *ctx)
 {
     app_motor_state_t *const motor = app_motor_state(id);
@@ -109,6 +146,9 @@ bool app_motor_set_output(app_motor_id_t id, app_motor_output_fn_t output, void 
     return true;
 }
 
+/**
+ * @brief 使能或关闭单路速度环。
+ */
 bool app_motor_set_enabled(app_motor_id_t id, bool enabled)
 {
     app_motor_state_t *const motor = app_motor_state(id);
@@ -127,6 +167,9 @@ bool app_motor_set_enabled(app_motor_id_t id, bool enabled)
     return true;
 }
 
+/**
+ * @brief 设置单路目标速度。
+ */
 bool app_motor_set_target_speed_50ms(app_motor_id_t id, int32_t speed_50ms)
 {
     app_motor_state_t *const motor = app_motor_state(id);
@@ -139,6 +182,9 @@ bool app_motor_set_target_speed_50ms(app_motor_id_t id, int32_t speed_50ms)
     return true;
 }
 
+/**
+ * @brief 停止全部电机。
+ */
 void app_motor_stop_all(void)
 {
     for (uint32_t i = 0U; i < (uint32_t) APP_MOTOR_COUNT; i++) {
@@ -146,6 +192,9 @@ void app_motor_stop_all(void)
     }
 }
 
+/**
+ * @brief 查询目标速度。
+ */
 int32_t app_motor_get_target_speed_50ms(app_motor_id_t id)
 {
     const app_motor_state_t *const motor = app_motor_state(id);
@@ -153,6 +202,9 @@ int32_t app_motor_get_target_speed_50ms(app_motor_id_t id)
     return (motor == NULL) ? 0 : motor->target_speed_50ms;
 }
 
+/**
+ * @brief 查询最近一次测量速度。
+ */
 int32_t app_motor_get_measured_speed_50ms(app_motor_id_t id)
 {
     const app_motor_state_t *const motor = app_motor_state(id);
@@ -160,6 +212,9 @@ int32_t app_motor_get_measured_speed_50ms(app_motor_id_t id)
     return (motor == NULL) ? 0 : motor->measured_speed_50ms;
 }
 
+/**
+ * @brief 查询最近一次输出。
+ */
 int16_t app_motor_get_output_permille(app_motor_id_t id)
 {
     const app_motor_state_t *const motor = app_motor_state(id);
@@ -167,6 +222,9 @@ int16_t app_motor_get_output_permille(app_motor_id_t id)
     return (motor == NULL) ? 0 : motor->output_permille;
 }
 
+/**
+ * @brief 获取电机状态指针。
+ */
 static app_motor_state_t *app_motor_state(app_motor_id_t id)
 {
     if ((uint32_t) id >= (uint32_t) APP_MOTOR_COUNT) {
@@ -176,6 +234,9 @@ static app_motor_state_t *app_motor_state(app_motor_id_t id)
     return &g_motors[id];
 }
 
+/**
+ * @brief 将 App 配置转换为纯算法 PID 配置。
+ */
 static ef_pid_i32_config_t app_motor_pid_config_to_component(const app_motor_pid_config_t *config)
 {
     ef_pid_i32_config_t component_config;
@@ -204,6 +265,9 @@ static ef_pid_i32_config_t app_motor_pid_config_to_component(const app_motor_pid
     return component_config;
 }
 
+/**
+ * @brief 复位单路控制历史和输出缓存。
+ */
 static void app_motor_reset_loop(app_motor_state_t *motor)
 {
     if (motor == NULL) {
@@ -214,6 +278,9 @@ static void app_motor_reset_loop(app_motor_state_t *motor)
     motor->output_permille = 0;
 }
 
+/**
+ * @brief 通过绑定回调同步输出命令。
+ */
 static void app_motor_apply_output(app_motor_id_t id, app_motor_state_t *motor)
 {
     const app_motor_output_t output = {
