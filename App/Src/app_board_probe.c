@@ -7,6 +7,18 @@
 #include "board_tof.h"
 #include "ef_log.h"
 
+/**
+ * @file app_board_probe.c
+ * @brief 应用层启动探测模块。
+ *
+ * @details
+ * 本模块只通过 BoardDevices API 检查板上外设在线状态，并把结果写入 LCD 状态页和日志。
+ * App 入口无需了解各传感器的寄存器、总线实例或片选细节。
+ */
+
+/**
+ * @brief 执行启动阶段板级外设探测。
+ */
 void app_board_probe_run(void)
 {
     if (board_flash_init()) {
