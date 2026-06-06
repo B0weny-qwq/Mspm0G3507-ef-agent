@@ -1,5 +1,14 @@
 # 更新日志
 
+## 2026-06-07
+
+- 新增 `app_angle_pid` 应用层 roll/pitch/yaw 角度外环，输入使用 `app_imu` Q10 欧拉角，PID 增益使用 Q8，输出通过 App 回调交给后续混控、速度环或业务模块，不直接绑定 PWM/GPIO。
+- 新增 `app_inav` IMU + 编码器惯导框架，默认融合 IMU yaw 和 `app_encoder` 左右 step 增量，输出 step Q10 位置、距离、航向和速度快照，并保留外部里程计 reader/push 注入接口。
+- 扩展 `app_encoder` 应用层快照接口 `app_encoder_get_snapshot()`，惯导和控制模块可复用最近一次 50ms 增量/速度，避免重复读取并清零板级编码器计数。
+- 更新 App 调度表：IMU 5ms、角度环 10ms、编码器/惯导/速度环 50ms，50ms 链路顺序为编码器快照、惯导融合、速度环。
+- 更新根 README、App README、应用结构、调度状态机和 IMU 数据处理文档，补充角度环、惯导和里程计保留接口说明。
+- 使用 `C:\AgentHarness\bin\graphify.ps1 update .` 刷新本地结构图；使用 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1` 完成 CMake/Ninja 构建验证，生成 `build/windows/app.elf`，大小为 text 31648、data 88、bss 7464。
+
 ## 2026-06-06
 
 - 准备 LSM6DSR IMU 数据处理链路：`app_imu` 新增 5ms 采样、实测 `dt_us`、200 帧启动零漂、32 帧环形 FIFO、整数低通预处理和 Q15/Q10 姿态输出结构。

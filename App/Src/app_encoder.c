@@ -4,6 +4,9 @@
 #include "board_encoder.h"
 #include "ef_log.h"
 #include "ef_lowpass.h"
+#include "ef_time.h"
+
+#include <stddef.h>
 
 /**
  * @file app_encoder.c
@@ -28,6 +31,8 @@ enum {
 static ef_lowpass_i32_t g_encoder1_filter;
 /** 编码器 2 速度低通滤波器。 */
 static ef_lowpass_i32_t g_encoder2_filter;
+/** 最近一次编码器采样快照。 */
+static app_encoder_snapshot_t g_encoder_snapshot;
 
 /**
  * @brief 初始化编码器采样模块。
@@ -36,6 +41,12 @@ void app_encoder_init(void)
 {
     ef_lowpass_i32_init(&g_encoder1_filter, APP_ENCODER_FILTER_SHIFT, APP_ENCODER_FILTER_ZERO_THRESHOLD);
     ef_lowpass_i32_init(&g_encoder2_filter, APP_ENCODER_FILTER_SHIFT, APP_ENCODER_FILTER_ZERO_THRESHOLD);
+    g_encoder_snapshot.delta_steps[APP_ENCODER_1] = 0;
+    g_encoder_snapshot.delta_steps[APP_ENCODER_2] = 0;
+    g_encoder_snapshot.speed_50ms[APP_ENCODER_1] = 0;
+    g_encoder_snapshot.speed_50ms[APP_ENCODER_2] = 0;
+    g_encoder_snapshot.timestamp_us = 0U;
+    g_encoder_snapshot.valid = false;
 
     if (board_encoder_init()) {
         app_status_page_set_line(APP_STATUS_LINE_ENCODER1, "ENC1: +0");
@@ -58,8 +69,25 @@ void app_encoder_tick_50ms(void)
     const int32_t encoder1_speed = ef_lowpass_i32_update(&g_encoder1_filter, encoder1_raw);
     const int32_t encoder2_speed = ef_lowpass_i32_update(&g_encoder2_filter, encoder2_raw);
 
+    g_encoder_snapshot.delta_steps[APP_ENCODER_1] = encoder1_raw;
+    g_encoder_snapshot.delta_steps[APP_ENCODER_2] = encoder2_raw;
+    g_encoder_snapshot.speed_50ms[APP_ENCODER_1] = encoder1_speed;
+    g_encoder_snapshot.speed_50ms[APP_ENCODER_2] = encoder2_speed;
+    g_encoder_snapshot.timestamp_us = ef_time_micros();
+    g_encoder_snapshot.valid = true;
+
     board_encoder_set_speed_50ms(BOARD_ENCODER_1, encoder1_speed);
     board_encoder_set_speed_50ms(BOARD_ENCODER_2, encoder2_speed);
     app_status_page_set_line(APP_STATUS_LINE_ENCODER1, "ENC1: %+ld", (long) encoder1_speed);
     app_status_page_set_line(APP_STATUS_LINE_ENCODER2, "ENC2: %+ld", (long) encoder2_speed);
+}
+
+bool app_encoder_get_snapshot(app_encoder_snapshot_t *snapshot)
+{
+    if (snapshot == NULL) {
+        return false;
+    }
+
+    *snapshot = g_encoder_snapshot;
+    return snapshot->valid;
 }

@@ -126,10 +126,12 @@ target_compile_options(ef_services PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_app
   App/Src/app.c
+  App/Src/app_angle_pid.c
   App/Src/app_board_probe.c
   App/Src/app_button.c
   App/Src/app_encoder.c
   App/Src/app_imu.c
+  App/Src/app_inav.c
   App/Src/app_motor.c
   App/Src/app_status_page.c
 )

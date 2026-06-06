@@ -14,6 +14,8 @@
 | 低通滤波 | 已完成 raw 预处理和 Q10 输出低通 | `ef_lowpass`、`ef_imu_attitude` |
 | 四元数 Q15 | 已完成 gyro 四元数积分、accel 互补校正和整数归一化 | `ef_imu_attitude` |
 | 欧拉角 Q10 | 已完成 gyro 积分、accel roll/pitch 互补校正和 Q10 输出 | `app_imu_get_attitude()` |
+| 角度外环 | 已完成 App 层 roll/pitch/yaw PID 框架，默认关闭，输出通过回调交给上层控制 | `app_angle_pid_tick_10ms()` |
+| 惯导接口 | 已完成 IMU yaw + 编码器 step 的 step Q10 惯导框架，并保留外部里程计注入接口 | `app_inav_tick_50ms()` |
 | DMA SPI | 已完成 SPI0/SPI1 DMA 全双工异步传输；IMU 使用 SPI0 burst 读取 | `ef_spi_transfer_async()`、`board_imu_start_read_async()` |
 | 屏幕刷新 10 Hz | 已完成，LCD 任务周期 100 ms | `app.c` |
 
@@ -38,6 +40,9 @@ flowchart TD
     F --> G[32 帧环形 FIFO]
     G --> H[ef_imu_attitude 整数姿态滤波]
     H --> I[Q15 四元数和 Q10 欧拉角输出]
+    I --> J[app_angle_pid 角度外环]
+    I --> K[app_inav 航向输入]
+    L[app_encoder 50ms 快照] --> K
 ```
 
 ## IMU 状态机
@@ -84,3 +89,10 @@ stateDiagram-v2
 5. 控制环只读取 `app_imu_attitude_t` 快照，不访问 FIFO 内部结构。
 
 注意：当前 accel 零漂只作为启动状态记录，姿态解算使用未扣重力的工程单位加速度，避免把重力当成传感器偏置全部扣掉。整数 atan2/sqrt 的角度精度后续仍可增强，但仍应保持在 Components 层。
+
+## 角度环和惯导接口
+
+- `app_angle_pid` 读取 `app_imu_get_attitude()`，输入为度 Q10，PID 增益为 Q8，输出为 App 层控制量；默认不使能，业务层显式设置目标角和输出回调后才会产生非零输出。
+- `app_inav` 读取 `app_imu_get_attitude()` 的 yaw 和 `app_encoder_get_snapshot()` 的左右 step 增量，积分得到 step Q10 位置、距离和速度快照。
+- `app_inav_set_odom_reader()` 和 `app_inav_push_odom_delta()` 是预留里程计接口，后续可接轮式里程计、光流或视觉里程计，不需要改 IMU 采样或编码器底层。
+- 角度环和惯导都不包含 `ef_spi`、`ef_gpio`、TI DriverLib、裸引脚宏或芯片寄存器头；底层资源仍由 BoardDevices/Drivers 隐藏。

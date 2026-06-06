@@ -10,6 +10,8 @@
 | `app_board_probe` | 启动阶段 Flash、IMU、光流、ToF 在线探测 | 启动时一次 |
 | `app_status_page` | LCD 状态页、错误日志摘要、心跳块、脏矩形服务 | 100 ms |
 | `app_encoder` | 两路编码器速度读取、低通滤波和显示 | 50 ms |
+| `app_inav` | IMU yaw + 编码器增量的惯导框架，保留外部里程计注入接口 | 50 ms |
+| `app_angle_pid` | roll/pitch/yaw 应用层角度外环 PID，输出留给上层混控/速度环绑定 | 10 ms |
 | `app_motor` | 两路电机速度环 PID，预留 PWM/EN 板级输出绑定 | 50 ms |
 | `app_imu` | LSM6DSR DMA 采样消费、实测 dt、启动零漂、低通预处理、32 帧 FIFO 和姿态缓存 | 5 ms |
 | `app_button` | BOOT 按键轮询、状态机和事件分发 | 10 ms |
@@ -22,6 +24,12 @@ App 层轮询由 `Services/ef_scheduler` 统一调度，不在业务模块里写
 - [../doc/应用结构.md](../doc/应用结构.md)
 - [../doc/调度与状态机.md](../doc/调度与状态机.md)
 - [../doc/IMU数据处理.md](../doc/IMU数据处理.md)
+
+## 控制和惯导接口
+
+- `app_angle_pid` 只读 `app_imu_get_attitude()`，默认关闭；业务层通过 `app_angle_pid_set_target_deg_q10()`、`app_angle_pid_set_enabled()` 和 `app_angle_pid_set_output()` 接入角度外环。
+- `app_encoder_get_snapshot()` 返回最近一次 50 ms 编码器增量和滤波速度，供惯导、里程计和控制模块复用，避免多个模块重复清零板级计数。
+- `app_inav` 默认使用编码器快照和 IMU yaw 积分 step Q10 位置；后续轮式里程计、光流或视觉里程计通过 `app_inav_set_odom_reader()` / `app_inav_push_odom_delta()` 注入。
 
 ## 扩展约定
 

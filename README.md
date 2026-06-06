@@ -45,6 +45,8 @@ Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 
 - LCD 和 W25Q128 共用 SPI1；Flash 字节传输会等待 LCD DMA 空闲后再访问 SPI，避免总线冲突。
 - `board_imu_*` 通过 SPI0 读取 LSM6DSR，默认 208Hz、加速度计 ±4g、陀螺仪 ±1000dps；当前支持 SPI0 DMA burst 异步采样，并保留同步读取 fallback。
 - `app_imu` 以 5ms 周期读取 IMU，使用 `ef_time_micros()` 记录实测 `dt_us`，完成 200 帧启动零漂、整数低通预处理、32 帧环形 FIFO，并通过 `ef_imu_attitude` 输出 Q15 四元数和 Q10 欧拉角；控制器输入约定 Q10/Q12。
+- `app_angle_pid` 提供应用层 roll/pitch/yaw 角度外环，输入为 `app_imu` 的 Q10 欧拉角，PID 增益使用 Q8，输出通过 App 回调交给混控、速度环或后续业务，不直接操作 PWM。
+- `app_inav` 提供 IMU + 编码器惯导框架：默认用 `app_encoder` 的左右轮 step 增量作为里程计源，IMU yaw 作为航向，输出 step Q10 位置/距离/速度快照，并保留外部里程计注入接口。
 - `board_optical_flow_*` 通过 SPI0 读取 PMW3901，初始化时写入光流优化寄存器表，并提供 delta、motion、SQUAL 和 shutter 调试值。
 - `board_tof_*` 通过 I2C0 访问 VL53L0X，默认 7-bit 地址 `0x29`，当前先完成 datasheet reference register 在线检测。
 - `ef_pwm` 封装 TIMA0/TIMA1/TIMG6/TIMG12，当前注册 PWM3/PWM4/PWM7/PWM8/蜂鸣器/电机 PWM。
@@ -52,7 +54,7 @@ Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 
 - `ef_can` 封装 CANFD0，当前按 Classic CAN 发送 0-8 字节数据帧。
 - `ef_capture` 封装 TIMG7/TIMG8 输入捕获，编码器 step 脉冲通过定时器捕获中断计数，不使用 GPIO 外部中断。
 - `board_encoder_*` 绑定两路 step/dir 编码器：编码器 1 为 PA28 step + PA31 dir，编码器 2 为 PA26 step + PA27 dir；板级层处理安装方向反向后的速度极性。
-- `app_encoder` 以 50ms 周期读取编码器增量，用 `ef_lowpass` 一阶整数低通滤波后作为 step/50ms 速度显示；当前 `alpha=1/2`，响应量级约 100ms。
+- `app_encoder` 以 50ms 周期读取编码器增量，用 `ef_lowpass` 一阶整数低通滤波后作为 step/50ms 速度显示，并通过 `app_encoder_get_snapshot()` 向惯导/里程计提供最近一帧增量和速度快照；当前 `alpha=1/2`，响应量级约 100ms。
 - PB21/BOOT 按键按上拉、按下为低电平处理，`ef_button` 以 10ms 轮询检测 DOWN、UP、CLICK、DOUBLE、LONG。
 - App 层通过 `app_button_register_handler()` 分发按键事件，后续业务模块不需要直接读 PB21 或操作 `ef_button_t`。
 - 示例 App 显示纯黑白 LCD 调试页：Flash JEDEC ID、IMU/光流/ToF 初始化状态、两路编码器速度、右上角 10Hz 心跳块、按键状态和错误行。
@@ -183,6 +185,12 @@ SPI0 引脚、PA17 片选、供电和 LSM6DSR WHO_AM_I 是否能读到 `0x6B`。
 整数三角函数精度仍可后续增强。App 层已经固定 FIFO、零漂、低通、Q15 四元数、Q10 欧拉角和实测 `dt` 边界，
 不要让 App 直接操作 DMA/SPI 寄存器。
 
+角度环只读取 `app_imu_get_attitude()` 返回的姿态快照。`app_angle_pid` 默认关闭，需要业务层设置目标角并使能；
+输出通过 `app_angle_pid_set_output()` 回调交给后续混控或速度环，App 仍不直接绑定电机 PWM、方向 GPIO 或底层定时器。
+
+惯导框架只使用 App 层快照和注入接口。`app_inav` 默认读取 `app_encoder_get_snapshot()`，也可以通过
+`app_inav_set_odom_reader()` 或 `app_inav_push_odom_delta()` 接入后续轮式里程计、光流或视觉里程计。
+
 ## 光流 API 注意事项
 
 `board_optical_flow_read()` 会在未初始化时尝试自动初始化。若 LCD 调试页显示 `FLOW: FAIL`，
@@ -202,4 +210,5 @@ PMW3901 的 counts 到实际位移需要结合安装高度、镜头、地面纹�
 当前两路编码器按 step/dir 信号处理，不做正交解码。step 由 TIMG7/TIMG8 输入捕获计数，
 dir 由 GPIO 在捕获回调中读取。`board_encoder_read_delta()` 返回上次读取以来的有符号 step 数；
 App 层通过 `app_encoder_tick_50ms()` 以 50ms 周期读取、滤波并刷新 LCD。由于机械安装相当于旋转 180 度，
-`board_encoder` 内部已经反向速度极性，业务层不要再次取反。
+`board_encoder` 内部已经反向速度极性，业务层不要再次取反。惯导和里程计业务读取
+`app_encoder_get_snapshot()`，不要绕过 App 层直接重复读取并清零 `board_encoder_read_delta()`。
