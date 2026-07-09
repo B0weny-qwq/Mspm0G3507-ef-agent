@@ -1,6 +1,7 @@
 #ifndef APP_BUTTON_H
 #define APP_BUTTON_H
 
+#include "app_module.h"
 #include "ef_button.h"
 
 #include <stdbool.h>
@@ -13,8 +14,16 @@ extern "C" {
  * @brief 应用层按钮编号。
  */
 typedef enum {
-    /** BOOT 按钮。 */
-    APP_BUTTON_BOOT = 0,
+    /** PB05 调参加按钮。 */
+    APP_BUTTON_B05 = 0,
+    /** PB04 调参减按钮。 */
+    APP_BUTTON_B04,
+    /** PB20 参数切换按钮。 */
+    APP_BUTTON_B20,
+    /** PB21/BOOT 启停按钮。 */
+    APP_BUTTON_B21,
+    /** 兼容旧名称，仍指向 PB21/BOOT。 */
+    APP_BUTTON_BOOT = APP_BUTTON_B21,
     /** 按钮数量。 */
     APP_BUTTON_COUNT,
 } app_button_id_t;
@@ -72,6 +81,11 @@ ef_button_event_t app_button_get_last_event(app_button_id_t id);
  * @return const char* 按钮名称。
  */
 const char *app_button_name(app_button_id_t id);
+
+/**
+ * @brief 获取按钮输入模块描述。
+ */
+const app_module_t *app_button_module(void);
 
 #ifdef __cplusplus
 }

@@ -64,7 +64,24 @@ void ef_gpio_write(ef_gpio_id_t id, bool active)
             DL_GPIO_clearPins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN);
         }
         break;
+    case EF_GPIO_MOTOR_LEFT_DIR:
+        if (active) {
+            DL_GPIO_setPins(GPIO_MOTORS_PORT, GPIO_MOTORS_LEFT_DIR_PIN);
+        } else {
+            DL_GPIO_clearPins(GPIO_MOTORS_PORT, GPIO_MOTORS_LEFT_DIR_PIN);
+        }
+        break;
+    case EF_GPIO_MOTOR_RIGHT_DIR:
+        if (active) {
+            DL_GPIO_setPins(GPIO_MOTORS_PORT, GPIO_MOTORS_RIGHT_DIR_PIN);
+        } else {
+            DL_GPIO_clearPins(GPIO_MOTORS_PORT, GPIO_MOTORS_RIGHT_DIR_PIN);
+        }
+        break;
     case EF_GPIO_BUTTON_BOOT:
+    case EF_GPIO_BUTTON_B05:
+    case EF_GPIO_BUTTON_B04:
+    case EF_GPIO_BUTTON_B20:
         break;
     case EF_GPIO_ENCODER1_STEP:
     case EF_GPIO_ENCODER1_DIR:
@@ -104,7 +121,16 @@ void ef_gpio_toggle(ef_gpio_id_t id)
     case EF_GPIO_OPTICAL_FLOW_CS:
         DL_GPIO_togglePins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN);
         break;
+    case EF_GPIO_MOTOR_LEFT_DIR:
+        DL_GPIO_togglePins(GPIO_MOTORS_PORT, GPIO_MOTORS_LEFT_DIR_PIN);
+        break;
+    case EF_GPIO_MOTOR_RIGHT_DIR:
+        DL_GPIO_togglePins(GPIO_MOTORS_PORT, GPIO_MOTORS_RIGHT_DIR_PIN);
+        break;
     case EF_GPIO_BUTTON_BOOT:
+    case EF_GPIO_BUTTON_B05:
+    case EF_GPIO_BUTTON_B04:
+    case EF_GPIO_BUTTON_B20:
         break;
     case EF_GPIO_ENCODER1_STEP:
     case EF_GPIO_ENCODER1_DIR:
@@ -138,6 +164,12 @@ bool ef_gpio_read(ef_gpio_id_t id)
         return (DL_GPIO_readPins(GPIO_SENSOR_DEVICES_PORT, GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN) != 0U);
     case EF_GPIO_BUTTON_BOOT:
         return (DL_GPIO_readPins(GPIO_BUTTONS_PORT, GPIO_BUTTONS_BOOT_PIN) != 0U);
+    case EF_GPIO_BUTTON_B05:
+        return (DL_GPIO_readPins(GPIO_BUTTONS_PORT, GPIO_BUTTONS_B05_PIN) != 0U);
+    case EF_GPIO_BUTTON_B04:
+        return (DL_GPIO_readPins(GPIO_BUTTONS_PORT, GPIO_BUTTONS_B04_PIN) != 0U);
+    case EF_GPIO_BUTTON_B20:
+        return (DL_GPIO_readPins(GPIO_BUTTONS_PORT, GPIO_BUTTONS_B20_PIN) != 0U);
     case EF_GPIO_ENCODER1_STEP:
         return (DL_GPIO_readPins(GPIO_ENCODERS_PORT, GPIO_ENCODERS_ENCODER1_STEP_PIN) != 0U);
     case EF_GPIO_ENCODER1_DIR:
@@ -146,6 +178,10 @@ bool ef_gpio_read(ef_gpio_id_t id)
         return (DL_GPIO_readPins(GPIO_ENCODERS_PORT, GPIO_ENCODERS_ENCODER2_STEP_PIN) != 0U);
     case EF_GPIO_ENCODER2_DIR:
         return (DL_GPIO_readPins(GPIO_ENCODERS_PORT, GPIO_ENCODERS_ENCODER2_DIR_PIN) != 0U);
+    case EF_GPIO_MOTOR_LEFT_DIR:
+        return (DL_GPIO_readPins(GPIO_MOTORS_PORT, GPIO_MOTORS_LEFT_DIR_PIN) != 0U);
+    case EF_GPIO_MOTOR_RIGHT_DIR:
+        return (DL_GPIO_readPins(GPIO_MOTORS_PORT, GPIO_MOTORS_RIGHT_DIR_PIN) != 0U);
     default:
         return false;
     }

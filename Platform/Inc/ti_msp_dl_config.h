@@ -175,14 +175,16 @@ extern "C" {
 
 #define PWM_TIMA1_INST                                                    TIMA1
 #define PWM_TIMA1_PERIOD                                                 4000U
-#define GPIO_MOTOR1_PWM_PORT                                             GPIOB
-#define GPIO_MOTOR1_PWM_PIN                                      DL_GPIO_PIN_0
-#define GPIO_MOTOR1_PWM_IOMUX                                  (IOMUX_PINCM12)
-#define GPIO_MOTOR1_PWM_IOMUX_FUNC                   IOMUX_PINCM12_PF_TIMA1_CCP0
-#define GPIO_MOTOR2_PWM_PORT                                             GPIOB
-#define GPIO_MOTOR2_PWM_PIN                                      DL_GPIO_PIN_1
-#define GPIO_MOTOR2_PWM_IOMUX                                  (IOMUX_PINCM13)
-#define GPIO_MOTOR2_PWM_IOMUX_FUNC                   IOMUX_PINCM13_PF_TIMA1_CCP1
+
+/* 左电机 PWM：PA30/TIMG6_CCP1；右电机 PWM：PA07/TIMA0_CCP1。 */
+#define GPIO_MOTOR_LEFT_PWM_PORT                                         GPIOA
+#define GPIO_MOTOR_LEFT_PWM_PIN                                  DL_GPIO_PIN_30
+#define GPIO_MOTOR_LEFT_PWM_IOMUX                              (IOMUX_PINCM5)
+#define GPIO_MOTOR_LEFT_PWM_IOMUX_FUNC               IOMUX_PINCM5_PF_TIMG6_CCP1
+#define GPIO_MOTOR_RIGHT_PWM_PORT                                        GPIOA
+#define GPIO_MOTOR_RIGHT_PWM_PIN                                  DL_GPIO_PIN_7
+#define GPIO_MOTOR_RIGHT_PWM_IOMUX                            (IOMUX_PINCM14)
+#define GPIO_MOTOR_RIGHT_PWM_IOMUX_FUNC             IOMUX_PINCM14_PF_TIMA0_CCP1
 
 #define PWM_TIMG6_INST                                                    TIMG6
 #define PWM_TIMG6_PERIOD                                                 4000U
@@ -286,10 +288,28 @@ extern "C" {
 /* 板级按键 GPIO 组。 */
 #define GPIO_BUTTONS_PORT                                                (GPIOB)
 
-/* BOOT 按键输入脚。 */
+/* 调参按键输入脚，均为 PB 口上拉低有效。 */
+#define GPIO_BUTTONS_B05_PIN                                     (DL_GPIO_PIN_5)
+#define GPIO_BUTTONS_B05_IOMUX                                  (IOMUX_PINCM18)
+#define GPIO_BUTTONS_B05_IOMUX_FUNC               IOMUX_PINCM18_PF_GPIOB_DIO05
+#define GPIO_BUTTONS_B04_PIN                                     (DL_GPIO_PIN_4)
+#define GPIO_BUTTONS_B04_IOMUX                                  (IOMUX_PINCM17)
+#define GPIO_BUTTONS_B04_IOMUX_FUNC               IOMUX_PINCM17_PF_GPIOB_DIO04
+#define GPIO_BUTTONS_B20_PIN                                    (DL_GPIO_PIN_20)
+#define GPIO_BUTTONS_B20_IOMUX                                  (IOMUX_PINCM48)
+#define GPIO_BUTTONS_B20_IOMUX_FUNC               IOMUX_PINCM48_PF_GPIOB_DIO20
 #define GPIO_BUTTONS_BOOT_PIN                                   (DL_GPIO_PIN_21)
 #define GPIO_BUTTONS_BOOT_IOMUX                                  (IOMUX_PINCM49)
 #define GPIO_BUTTONS_BOOT_IOMUX_FUNC               IOMUX_PINCM49_PF_GPIOB_DIO21
+
+/* 电机方向输出脚。 */
+#define GPIO_MOTORS_PORT                                                 (GPIOB)
+#define GPIO_MOTORS_LEFT_DIR_PIN                                  DL_GPIO_PIN_1
+#define GPIO_MOTORS_LEFT_DIR_IOMUX                              (IOMUX_PINCM13)
+#define GPIO_MOTORS_LEFT_DIR_IOMUX_FUNC           IOMUX_PINCM13_PF_GPIOB_DIO01
+#define GPIO_MOTORS_RIGHT_DIR_PIN                                 DL_GPIO_PIN_0
+#define GPIO_MOTORS_RIGHT_DIR_IOMUX                             (IOMUX_PINCM12)
+#define GPIO_MOTORS_RIGHT_DIR_IOMUX_FUNC          IOMUX_PINCM12_PF_GPIOB_DIO00
 
 
 

@@ -30,6 +30,12 @@ typedef enum {
     EF_GPIO_OPTICAL_FLOW_CS,
     /** BOOT 按钮输入。 */
     EF_GPIO_BUTTON_BOOT,
+    /** PB05 调参按钮输入。 */
+    EF_GPIO_BUTTON_B05,
+    /** PB04 调参按钮输入。 */
+    EF_GPIO_BUTTON_B04,
+    /** PB20 调参按钮输入。 */
+    EF_GPIO_BUTTON_B20,
     /** 编码器 1 step 输入：PA28。 */
     EF_GPIO_ENCODER1_STEP,
     /** 编码器 1 dir 输入：PA31。 */
@@ -38,6 +44,10 @@ typedef enum {
     EF_GPIO_ENCODER2_STEP,
     /** 编码器 2 dir 输入：PA27。 */
     EF_GPIO_ENCODER2_DIR,
+    /** 左电机方向输出：PB01。 */
+    EF_GPIO_MOTOR_LEFT_DIR,
+    /** 右电机方向输出：PB00。 */
+    EF_GPIO_MOTOR_RIGHT_DIR,
 } ef_gpio_id_t;
 
 /**

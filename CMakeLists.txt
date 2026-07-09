@@ -83,6 +83,7 @@ add_library(ef_boarddevices
   BoardDevices/Src/board_imu.c
   BoardDevices/Src/board_lcd.c
   BoardDevices/Src/board_led.c
+  BoardDevices/Src/board_motor.c
   BoardDevices/Src/board_optical_flow.c
   BoardDevices/Src/board_tof.c
 )
@@ -96,6 +97,7 @@ add_library(ef_components
   Components/Src/ef_button.c
   Components/Src/ef_imu_attitude.c
   Components/Src/ef_lowpass.c
+  Components/Src/ef_pid_i32.c
 )
 
 target_include_directories(ef_components PUBLIC Components/Inc)
@@ -114,11 +116,16 @@ target_compile_options(ef_services PRIVATE ${MSPM0_COMPILE_OPTIONS})
 
 add_library(ef_app
   App/Src/app.c
-  App/Src/app_board_probe.c
-  App/Src/app_button.c
-  App/Src/app_encoder.c
-  App/Src/app_imu.c
-  App/Src/app_status_page.c
+  App/Src/app_modules.c
+  App/Modules/Display/app_pid_tune_page.c
+  App/Modules/Display/app_status_page.c
+  App/Modules/Input/app_button.c
+  App/Modules/Motion/app_encoder.c
+  App/Modules/Motion/app_imu.c
+  App/Modules/Motion/app_speed_control.c
+  App/Modules/Motion/app_speed_params.c
+  App/Modules/System/app_board_probe.c
+  App/Modules/System/app_led.c
 )
 
 target_include_directories(ef_app PUBLIC App/Inc)

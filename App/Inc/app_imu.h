@@ -1,6 +1,7 @@
 #ifndef APP_IMU_H
 #define APP_IMU_H
 
+#include "app_module.h"
 #include "board_imu.h"
 
 #include <stdbool.h>
@@ -102,6 +103,11 @@ app_imu_bias_t app_imu_get_bias(void);
  * @return app_imu_attitude_t 姿态状态快照。
  */
 app_imu_attitude_t app_imu_get_attitude(void);
+
+/**
+ * @brief 获取 IMU 采样和姿态模块描述。
+ */
+const app_module_t *app_imu_module(void);
 
 #ifdef __cplusplus
 }

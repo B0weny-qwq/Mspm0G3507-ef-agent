@@ -6,13 +6,14 @@
 
 | 模块 | 设备/功能 | 下层依赖 |
 | --- | --- | --- |
-| `board_button` | PB21/BOOT 按键 | `ef_gpio` |
+| `board_button` | PB05/PB04/PB20/PB21 四个低有效按键 | `ef_gpio` |
 | `board_console` | UART 日志控制台 | `ef_uart` |
 | `board_encoder` | 两路 step/dir 编码器 | `ef_capture`、`ef_gpio`、`ef_platform` |
 | `board_flash` | W25Q128 Flash | `w25q128`、`ef_spi`、`ef_gpio` |
 | `board_imu` | LSM6DSR IMU，208Hz、±4g、±1000dps，SPI0 DMA burst 采样 | `lsm6dsr`、`ef_spi`、`ef_gpio` |
 | `board_lcd` | TFT180/ST7789 状态屏 | `st7789`、`ef_spi`、`ef_gpio` |
 | `board_led` | 板载 LED | `ef_gpio` |
+| `board_motor` | 左 PA30 PWM/PB01 DIR，右 PA07 PWM/PB00 DIR | `ef_pwm`、`ef_gpio` |
 | `board_optical_flow` | PMW3901 光流 | `pmw3901`、`ef_spi`、`ef_gpio` |
 | `board_tof` | VL53L0X ToF 在线检测 | `vl53l0x`、`ef_i2c` |
 

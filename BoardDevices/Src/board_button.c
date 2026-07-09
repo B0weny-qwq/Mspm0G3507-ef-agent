@@ -13,7 +13,13 @@ void board_button_init(void)
 bool board_button_is_pressed(board_button_id_t id)
 {
     switch (id) {
-    case BOARD_BUTTON_BOOT:
+    case BOARD_BUTTON_B05:
+        return !ef_gpio_read(EF_GPIO_BUTTON_B05);
+    case BOARD_BUTTON_B04:
+        return !ef_gpio_read(EF_GPIO_BUTTON_B04);
+    case BOARD_BUTTON_B20:
+        return !ef_gpio_read(EF_GPIO_BUTTON_B20);
+    case BOARD_BUTTON_B21:
         return !ef_gpio_read(EF_GPIO_BUTTON_BOOT);
     default:
         return false;

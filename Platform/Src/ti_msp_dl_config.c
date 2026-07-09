@@ -147,10 +147,9 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     DL_GPIO_initPeripheralOutputFunction(GPIO_PWM3_IOMUX, GPIO_PWM3_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_PWM4_IOMUX, GPIO_PWM4_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_PWM7_IOMUX, GPIO_PWM7_IOMUX_FUNC);
-    DL_GPIO_initPeripheralOutputFunction(GPIO_PWM8_IOMUX, GPIO_PWM8_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_BUZZER_PWM_IOMUX, GPIO_BUZZER_PWM_IOMUX_FUNC);
-    DL_GPIO_initPeripheralOutputFunction(GPIO_MOTOR1_PWM_IOMUX, GPIO_MOTOR1_PWM_IOMUX_FUNC);
-    DL_GPIO_initPeripheralOutputFunction(GPIO_MOTOR2_PWM_IOMUX, GPIO_MOTOR2_PWM_IOMUX_FUNC);
+    DL_GPIO_initPeripheralOutputFunction(GPIO_MOTOR_LEFT_PWM_IOMUX, GPIO_MOTOR_LEFT_PWM_IOMUX_FUNC);
+    DL_GPIO_initPeripheralOutputFunction(GPIO_MOTOR_RIGHT_PWM_IOMUX, GPIO_MOTOR_RIGHT_PWM_IOMUX_FUNC);
 
     /* 编码器 step 输入捕获脚，dir 方向脚保持普通 GPIO 输入。 */
     DL_GPIO_initPeripheralInputFunction(
@@ -180,8 +179,19 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     DL_GPIO_initDigitalOutput(GPIO_BOARD_DEVICES_LCD_BLK_IOMUX);
     DL_GPIO_initDigitalOutput(GPIO_SENSOR_DEVICES_IMU_CS_IOMUX);
     DL_GPIO_initDigitalOutput(GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_MOTORS_LEFT_DIR_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_MOTORS_RIGHT_DIR_IOMUX);
 
-    /* BOOT 键输入，上拉并开启迟滞。 */
+    /* 调参按键输入，上拉并开启迟滞。 */
+    DL_GPIO_initDigitalInputFeatures(GPIO_BUTTONS_B05_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_PULL_UP,
+        DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
+    DL_GPIO_initDigitalInputFeatures(GPIO_BUTTONS_B04_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_PULL_UP,
+        DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
+    DL_GPIO_initDigitalInputFeatures(GPIO_BUTTONS_B20_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_PULL_UP,
+        DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
     DL_GPIO_initDigitalInputFeatures(GPIO_BUTTONS_BOOT_IOMUX,
         DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_PULL_UP,
         DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
@@ -202,6 +212,11 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
         GPIO_SENSOR_DEVICES_IMU_CS_PIN |
         GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN);
 
+    /* 电机默认正向、0 占空比，方向输出先拉低。 */
+    DL_GPIO_clearPins(GPIO_MOTORS_PORT,
+        GPIO_MOTORS_LEFT_DIR_PIN |
+        GPIO_MOTORS_RIGHT_DIR_PIN);
+
     /* 打开对应 GPIO 输出缓冲。 */
     DL_GPIO_enableOutput(GPIO_LEDS_PORT, GPIO_LEDS_USER_LED_1_PIN |
         GPIO_LEDS_USER_TEST_PIN |
@@ -214,6 +229,10 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     DL_GPIO_enableOutput(GPIO_SENSOR_DEVICES_PORT,
         GPIO_SENSOR_DEVICES_IMU_CS_PIN |
         GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN);
+
+    DL_GPIO_enableOutput(GPIO_MOTORS_PORT,
+        GPIO_MOTORS_LEFT_DIR_PIN |
+        GPIO_MOTORS_RIGHT_DIR_PIN);
 
 }
 
@@ -384,14 +403,14 @@ static void SYSCFG_DL_PWM_init_timer(GPTIMER_Regs *timer, uint32_t period, bool 
     DL_Timer_initPWMMode(timer, &config);
     DL_Timer_setCounterControl(timer, zero_ctl, advance_ctl, load_ctl);
 
-    /* 先统一把比较通道输出初始化为低电平且占空比为 0。 */
+    /* down-count PWM 中 compare=period-1 接近逻辑 0%，避免 EN 打开时误输出。 */
     for (uint32_t channel = 0U; channel < (four_cc ? 4U : 2U); channel++) {
         DL_TIMER_CC_INDEX index = (DL_TIMER_CC_INDEX) channel;
 
         DL_Timer_setCaptureCompareOutCtl(timer, DL_TIMER_CC_OCTL_INIT_VAL_LOW,
             DL_TIMER_CC_OCTL_INV_OUT_DISABLED, DL_TIMER_CC_OCTL_SRC_FUNCVAL, index);
         DL_Timer_setCaptCompUpdateMethod(timer, DL_TIMER_CC_UPDATE_METHOD_IMMEDIATE, index);
-        DL_Timer_setCaptureCompareValue(timer, 0U, index);
+        DL_Timer_setCaptureCompareValue(timer, period - 1U, index);
     }
 
     DL_Timer_enableClock(timer);
@@ -404,7 +423,7 @@ static void SYSCFG_DL_PWM_init_timer(GPTIMER_Regs *timer, uint32_t period, bool 
 SYSCONFIG_WEAK void SYSCFG_DL_PWM_init(void)
 {
     SYSCFG_DL_PWM_init_timer(PWM_TIMA0_INST, PWM_TIMA0_PERIOD, true,
-        DL_TIMER_CC2_OUTPUT | DL_TIMER_CC3_OUTPUT,
+        DL_TIMER_CC1_OUTPUT | DL_TIMER_CC2_OUTPUT | DL_TIMER_CC3_OUTPUT,
         DL_TIMER_CZC_CCCTL2_ZCOND, DL_TIMER_CAC_CCCTL2_ACOND, DL_TIMER_CLC_CCCTL2_LCOND);
     SYSCFG_DL_PWM_init_timer(PWM_TIMA1_INST, PWM_TIMA1_PERIOD, false,
         DL_TIMER_CC0_OUTPUT | DL_TIMER_CC1_OUTPUT,

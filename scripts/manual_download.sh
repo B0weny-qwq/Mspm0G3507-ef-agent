@@ -17,8 +17,9 @@ OPENOCD_SCRIPTS="${OPENOCD_SCRIPTS:-$HOME/.local/openocd-git/share/openocd/scrip
 TARGET_CFG="${TARGET_CFG:-target/ti/mspm0.cfg}"
 TARGET="${TARGET:-mspm0g3507}"
 ADAPTER="${ADAPTER:-cmsis-dap}"
-SPEED="${SPEED:-1000}"
+SPEED="${SPEED:-100}"
 FLASH_TIMEOUT="${FLASH_TIMEOUT:-180}"
+FLASH_WATCHDOG="${FLASH_WATCHDOG:-$((FLASH_TIMEOUT + 15))}"
 ELF="${ELF:-build/app.elf}"
 HEX="${HEX:-build/app.hex}"
 DAPLINK="${DAPLINK:-/media/$USER/DAPLINK}"
@@ -80,11 +81,44 @@ Target:          ${TARGET}
 Adapter:         ${ADAPTER}
 Speed:           ${SPEED} kHz
 Flash timeout:   ${FLASH_TIMEOUT}s
+Flash watchdog: ${FLASH_WATCHDOG}s
 ELF:             ${ELF}
 HEX:             ${HEX}
 DAPLink disk:    ${DAPLINK}
 Serial:          ${SERIAL}
 EOF
+}
+
+run_openocd_flash() {
+    local label="$1"
+    local start
+    local elapsed
+    local rc
+    local pid
+
+    start="$(date +%s)"
+    echo "[$(date +%H:%M:%S)] ${label}: start, watchdog ${FLASH_WATCHDOG}s"
+
+    timeout --foreground "${FLASH_WATCHDOG}s" "$EF" flash "${openocd_flash_args[@]}" &
+    pid="$!"
+
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 5
+        if kill -0 "$pid" 2>/dev/null; then
+            elapsed="$(($(date +%s) - start))"
+            echo "[$(date +%H:%M:%S)] ${label}: running ${elapsed}s"
+        fi
+    done
+
+    if wait "$pid"; then
+        rc=0
+    else
+        rc="$?"
+    fi
+
+    elapsed="$(($(date +%s) - start))"
+    echo "[$(date +%H:%M:%S)] ${label}: exit ${rc}, elapsed ${elapsed}s"
+    return "$rc"
 }
 
 openocd_flash_args=(
@@ -137,8 +171,8 @@ cmd_flash() {
     require_exe "$EF"
     require_exe "$OPENOCD"
     require_file "$ELF"
-    echo "DAPLink flash can take about 120s; waiting up to ${FLASH_TIMEOUT}s."
-    "$EF" flash "${openocd_flash_args[@]}"
+    echo "OpenOCD flash can take about 120s; waiting up to ${FLASH_WATCHDOG}s."
+    run_openocd_flash "flash"
 }
 
 cmd_run() {
@@ -153,7 +187,7 @@ cmd_flash_loop() {
     echo "Retrying ${TRIES} times. Press/release RESET while this runs."
     for i in $(seq 1 "$TRIES"); do
         echo "try ${i}/${TRIES}"
-        if "$EF" flash "${openocd_flash_args[@]}"; then
+        if run_openocd_flash "try ${i}/${TRIES}"; then
             exit 0
         fi
         sleep 0.5

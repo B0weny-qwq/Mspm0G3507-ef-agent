@@ -14,7 +14,7 @@ SPI Flash/IMU/光流/ToF/编码器板级 API，并把 PB21/BOOT 作为普通上�
 - `BoardDevices/`：板级 LED、LCD、Flash、IMU、光流、ToF、Button、Console API，隐藏 CS、引脚、SPI/I2C 实例、地址和极性。
 - `Components/`：纯算法组件，例如按键 debounce/单击/双击/长按状态机、整数低通和 IMU 姿态滤波，不依赖硬件、SDK、BoardDevices 或 Drivers。
 - `Services/`：轻量级 logger、event、scheduler、time；日志输出通过 BoardDevices 控制台，时间源由启动入口注入。
-- `App/`：应用任务、事件绑定和启动编排，只依赖 BoardDevices/Services/Components。当前拆分为 `app.c` 编排入口、`app_board_probe` 启动探测、`app_status_page` LCD 状态页、`app_encoder` 编码器速度采样、`app_imu` IMU 采样/FIFO 和 `app_button` 按键事件模块。
+- `App/`：应用任务、模块装配和启动编排，只依赖 BoardDevices/Services/Components。`App/Src` 只保留入口和模块表；显示、输入、运动、系统辅助分别放在 `App/Modules/Display`、`Input`、`Motion`、`System`。
 
 按 EmbedForge 项目标准核对，当前属于 Level 1.5：有外部芯片和基础服务，但不需要
 Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 `Components/`
@@ -52,8 +52,11 @@ Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 
 - `ef_can` 封装 CANFD0，当前按 Classic CAN 发送 0-8 字节数据帧。
 - `ef_capture` 封装 TIMG7/TIMG8 输入捕获，编码器 step 脉冲通过定时器捕获中断计数，不使用 GPIO 外部中断。
 - `board_encoder_*` 绑定两路 step/dir 编码器：编码器 1 为 PA28 step + PA31 dir，编码器 2 为 PA26 step + PA27 dir；板级层处理安装方向反向后的速度极性。
-- `app_encoder` 以 50ms 周期读取编码器增量，用 `ef_lowpass` 一阶整数低通滤波后作为 step/50ms 速度显示；当前 `alpha=1/2`，响应量级约 100ms。
-- PB21/BOOT 按键按上拉、按下为低电平处理，`ef_button` 以 10ms 轮询检测 DOWN、UP、CLICK、DOUBLE、LONG。
+- `app_encoder` 以 50ms 周期读取编码器增量，用 `ef_lowpass` 一阶整数低通滤波后作为 step/50ms 速度显示；当前 `alpha=1/4`，并对低速毛刺做死区处理。
+- `board_motor_*` 绑定左右电机：左侧 PA30 PWM + PB01 DIR，右侧 PA07 PWM + PB00 DIR；App 提交 -1000 到 +1000 有符号千分比输出。
+- `app_speed_control` 以 50ms 周期读取编码器速度并执行 Q10 增量式 PI 速度环；当前先只驱动左侧电机，左侧输出极性已反向，PWM duty 限幅为 600 permille，即 60%，默认参数为 Kp=1.000、Ki=0.050、Kd=0.000，默认目标速度 200 step/50ms，但不上电启动闭环；Target/Dir/Kp/Ki/Kd 会写入 W25Q128 日志槽，重启后恢复。
+- PB05/PB04/PB20/PB21 按键按上拉、按下为低电平处理，`ef_button` 以 10ms 轮询检测 DOWN、UP、CLICK、DOUBLE、LONG。
+- `app_pid_tune_page` 在 LCD 上显示速度环调参 UI：PB20 短按切换参数，PB21 短按切换步进/小数位，PB05 增加，PB04 减少，PB21 长按启停，PB20 长按切换方向；增益默认 P=1.000、I=0.050、D=0.000，内部为 Q10，屏幕按三位小数显示；当前速度环只使用增量式 PI。
 - App 层通过 `app_button_register_handler()` 分发按键事件，后续业务模块不需要直接读 PB21 或操作 `ef_button_t`。
 - 示例 App 显示纯黑白 LCD 调试页：Flash JEDEC ID、IMU/光流/ToF 初始化状态、两路编码器速度、右上角 10Hz 心跳块、按键状态和错误行。
 - App 默认以 `EF_LOG_INFO` 初始化日志，启动阶段 `EF_LOGI` 会从 UART 输出；`EF_LOGE` 会同时输出到 UART 并刷新到 LCD 错误行，日志时间戳由 `main()` 注入平台毫秒时基。
@@ -144,12 +147,13 @@ $HOME/.local/openocd-git/bin/openocd \
 - I2C0：PA1 SCL、PA0 SDA，用于 VL53L0X ToF 总线，默认 400kHz。
 - VL53L0X：I2C0，默认 7-bit 地址 `0x29`；XSHUT 和 GPIO1/INT 当前未分配，板级 API 走轮询/在线检测路径。
 - CANFD0：PA12 CAN_TX、PA13 CAN_RX。
-- PWM：PB12 TIMA0_C2、PB13 TIMA0_C3、PA29 TIMG6_C0、PB27 TIMG6_C1、PA14 TIMG12_C0、PB0 TIMA1_C0、PB1 TIMA1_C1。
+- PWM：PB12 TIMA0_C2、PB13 TIMA0_C3、PA29 TIMG6_C0、PA30 TIMG6_C1、PA07 TIMA0_C1、PA14 TIMG12_C0。
+- 电机方向：左 PB01 DIR，右 PB00 DIR。
 - 编码器 1：PA28 TIMG7_CCP0 捕获 step，PA31 GPIO 读取 dir。
 - 编码器 2：PA26 TIMG8_CCP0 捕获 step，PA27 GPIO 读取 dir。
 - 资源冲突策略：`SPI/I2C/UART/CAN/Debug` 优先级最高，编码器次之，`GPIO/PWM/Button/蜂鸣器` 最低；当前 PA29/PB27 已分配给 PWM7/PWM8，GPIO.IO7/GPIO.IO6 禁用。
 - LCD 当前参数：160x128，`x_offset=1`，`y_offset=2`，`MADCTL=0xA0`。
-- BOOT 按键：PB21，内部上拉，按下为低电平；只有和 EN 组合才进入强制下载，常态可作为普通按键。
+- 调参按键：PB05、PB04、PB20、PB21，内部上拉，按下为低电平；PB21 仍是 BOOT 复用键。
 
 ## Flash API 注意事项
 

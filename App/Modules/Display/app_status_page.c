@@ -1,5 +1,6 @@
 #include "app_status_page.h"
 
+#include "app_button.h"
 #include "board_lcd.h"
 
 #include <stdarg.h>
@@ -22,6 +23,8 @@
 enum {
     /** 单行状态文本缓冲区长度。 */
     APP_STATUS_TEXT_LEN = 28,
+    /** LCD 状态页服务周期，单位 ms。 */
+    APP_STATUS_PAGE_TASK_MS = 100U,
 };
 
 /**
@@ -46,15 +49,94 @@ static const app_status_line_view_t g_line_views[APP_STATUS_LINE_COUNT] = {
 
 /** LCD 是否已经初始化成功。 */
 static bool g_lcd_ready;
+/** 状态页显示开关；关闭时只更新文本缓存，不刷新 LCD。 */
+static bool g_display_enabled;
 /** 右上角心跳块当前亮灭状态。 */
 static bool g_heartbeat_on;
 /** 各状态行文本缓存。 */
 static char g_lines[APP_STATUS_LINE_COUNT][APP_STATUS_TEXT_LEN];
 
+static void app_status_page_module_init(void);
+static void app_status_page_task(void *ctx);
+static void app_status_page_button_handler(app_button_id_t id, ef_button_event_t event, void *ctx);
 static void app_status_page_draw_line(app_status_line_t line);
 static void app_status_page_draw_all(void);
 static void app_status_page_draw_header(void);
 static void app_status_page_set_error_text(const char *msg);
+
+/** LCD 状态页周期任务表。 */
+static const ef_task_config_t g_app_status_page_tasks[] = {
+    {
+        .run = app_status_page_task,
+        .ctx = NULL,
+        .period_ms = APP_STATUS_PAGE_TASK_MS,
+        .run_on_start = true,
+    },
+};
+
+/** LCD 状态页显示模块描述。 */
+static const app_module_t g_app_status_page_module = {
+    .name = "status_page",
+    .init = app_status_page_module_init,
+    .tasks = g_app_status_page_tasks,
+    .task_count = APP_ARRAY_COUNT(g_app_status_page_tasks),
+    .events = NULL,
+    .event_count = 0U,
+};
+
+const app_module_t *app_status_page_module(void)
+{
+    return &g_app_status_page_module;
+}
+
+/**
+ * @brief 初始化状态页模块。
+ *
+ * 本函数集中处理显示模块自己的依赖：状态缓存、日志错误旁路、按钮显示回调和 LCD 初始化。
+ */
+static void app_status_page_module_init(void)
+{
+    app_status_page_reset();
+    ef_log_set_error_sink(app_status_page_error_log_sink, NULL);
+
+    if (!app_button_register_handler(app_status_page_button_handler, NULL)) {
+        EF_LOGE("button", "handler full");
+    }
+
+    if (app_status_page_init_lcd()) {
+        EF_LOGI("lcd", "init ok, %ux%u", BOARD_LCD_WIDTH, BOARD_LCD_HEIGHT);
+        app_status_page_set_line(APP_STATUS_LINE_INIT, "LCD: OK");
+    } else {
+        EF_LOGE("lcd", "init failed");
+    }
+}
+
+/**
+ * @brief 调度器任务包装，保持显示刷新周期定义留在显示模块内。
+ *
+ * @param ctx 任务上下文，当前未使用。
+ */
+static void app_status_page_task(void *ctx)
+{
+    (void) ctx;
+    app_status_page_service();
+}
+
+/**
+ * @brief 将按钮事件同步到状态页和日志。
+ *
+ * @param id 应用按钮编号。
+ * @param event 按钮事件。
+ * @param ctx 用户上下文，当前未使用。
+ */
+static void app_status_page_button_handler(app_button_id_t id, ef_button_event_t event, void *ctx)
+{
+    (void) ctx;
+
+    app_status_page_set_line(APP_STATUS_LINE_BUTTON, "%s: %s",
+        app_button_name(id), ef_button_event_name(event));
+    EF_LOGI("button", "%s %s", app_button_name(id), ef_button_event_name(event));
+}
 
 /**
  * @brief 重置状态页缓存和运行状态。
@@ -62,6 +144,7 @@ static void app_status_page_set_error_text(const char *msg);
 void app_status_page_reset(void)
 {
     g_lcd_ready = false;
+    g_display_enabled = true;
     g_heartbeat_on = false;
 
     snprintf(g_lines[APP_STATUS_LINE_INIT], APP_STATUS_TEXT_LEN, "INIT: pending");
@@ -84,6 +167,8 @@ bool app_status_page_init_lcd(void)
 {
     g_lcd_ready = board_lcd_init();
     if (g_lcd_ready) {
+        g_display_enabled = true;
+        board_lcd_set_backlight(true);
         board_lcd_fill(BOARD_LCD_COLOR_BLACK);
         app_status_page_draw_header();
         app_status_page_draw_all();
@@ -101,6 +186,53 @@ bool app_status_page_init_lcd(void)
 bool app_status_page_is_ready(void)
 {
     return g_lcd_ready;
+}
+
+/**
+ * @brief 控制状态页显示开关。
+ *
+ * @param enabled `true` 打开显示，`false` 关闭显示。
+ */
+void app_status_page_set_display_enabled(bool enabled)
+{
+    if (!g_lcd_ready) {
+        return;
+    }
+    if (g_display_enabled == enabled) {
+        return;
+    }
+
+    g_display_enabled = enabled;
+    if (g_display_enabled) {
+        board_lcd_set_backlight(true);
+        board_lcd_fill(BOARD_LCD_COLOR_BLACK);
+        app_status_page_draw_header();
+        app_status_page_draw_all();
+        board_lcd_service();
+    } else {
+        board_lcd_fill(BOARD_LCD_COLOR_BLACK);
+        board_lcd_service();
+        board_lcd_set_backlight(false);
+    }
+}
+
+/**
+ * @brief 切换状态页显示开关。
+ */
+void app_status_page_toggle_display_enabled(void)
+{
+    app_status_page_set_display_enabled(!g_display_enabled);
+}
+
+/**
+ * @brief 查询状态页显示是否打开。
+ *
+ * @return `true` LCD 已就绪且显示打开。
+ * @return `false` LCD 未就绪或显示关闭。
+ */
+bool app_status_page_is_display_enabled(void)
+{
+    return g_lcd_ready && g_display_enabled;
 }
 
 /**
@@ -129,7 +261,7 @@ void app_status_page_set_line(app_status_line_t line, const char *fmt, ...)
  */
 void app_status_page_service(void)
 {
-    if (!g_lcd_ready) {
+    if (!g_lcd_ready || !g_display_enabled) {
         return;
     }
 
@@ -173,7 +305,7 @@ void app_status_page_error_log_sink(ef_log_level_t level, const char *line, void
  */
 static void app_status_page_draw_line(app_status_line_t line)
 {
-    if (!g_lcd_ready || ((uint32_t) line >= (uint32_t) APP_STATUS_LINE_COUNT)) {
+    if (!g_lcd_ready || !g_display_enabled || ((uint32_t) line >= (uint32_t) APP_STATUS_LINE_COUNT)) {
         return;
     }
 

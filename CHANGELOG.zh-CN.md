@@ -1,5 +1,17 @@
 # 更新日志
 
+## 2026-07-10
+
+- 新增左右电机板级输出：左侧 PA30 PWM/PB01 DIR，右侧 PA07 PWM/PB00 DIR；App 层通过 `board_motor_set_output_permille()` 提交有符号 PWM 千分比。
+- 新增四键输入 PB05/PB04/PB20/PB21，并接入 `app_button` 10ms 轮询状态机和事件分发。
+- 新增 `Components/ef_pid_i32` Q10 整数 PID 组件，并在 `app_speed_control` 中切换为 50ms 增量式 PI 速度环。
+- 新增 `app_pid_tune_page` LCD 调参 UI：PB20 短按切换 Kp/Ki/Kd/Target/Dir，PB21 短按切换步进/小数位，PB05/PB04 加减，PB21 长按启停，PB20 长按切方向；增益默认 P=1.000、I=0.050、D=0.000，增益按 Q10 保存、三位小数显示。
+- 临时调整速度环调试策略：仅左侧电机参与闭环输出，左侧输出极性反向，PWM 输出限幅收敛到 ±200 permille。
+- 重构 App 层为可人工维护的功能模块目录：`App/Src` 只保留入口和模块装配，显示、输入、运动、系统辅助分别移动到 `App/Modules/Display`、`Input`、`Motion`、`System`。
+- 新增 `app_module_t` 模块描述和 `app_modules` 注册表，每个模块自己声明初始化函数、周期任务和事件绑定；`app.c` 只遍历模块表并初始化事件/调度器。
+- 将 LCD 状态页、按键显示回调、编码器 50ms 采样、IMU 5ms 采样和 LED 500ms 心跳任务下沉到各自模块 `.c`，减少主入口业务耦合。
+- 更新 App README、应用结构和调度状态机文档，明确新增模块、修改显示图形、调整运动闭环时的维护位置。
+
 ## 2026-06-06
 
 - 准备 LSM6DSR IMU 数据处理链路：`app_imu` 新增 5ms 采样、实测 `dt_us`、200 帧启动零漂、32 帧环形 FIFO、整数低通预处理和 Q15/Q10 姿态输出结构。
@@ -12,7 +24,7 @@
 - 按 EmbedForge Level 1.5 边界拆分 App 层：`app.c` 仅保留调度、事件和初始化编排，新增 `app_board_probe`、`app_status_page`、`app_encoder` 三个应用子模块。
 - 新增两路 step/dir 编码器读取：编码器 1 使用 PA28 step + PA31 dir，编码器 2 使用 PA26 step + PA27 dir；step 由 TIMG7/TIMG8 输入捕获计数，不使用 GPIO 外部中断。
 - 新增 `ef_capture` MCU 输入捕获抽象和 `board_encoder` 板级编码器 API，在 BoardDevices 层隐藏定时器、GPIO 和安装方向极性。
-- 新增 `ef_lowpass` 整数一阶低通组件，`app_encoder` 以 50ms 周期读取速度，当前 `alpha=1/2`，显示响应量级约 100ms。
+- 新增 `ef_lowpass` 整数一阶低通组件，`app_encoder` 以 50ms 周期读取速度，当前 `alpha=1/4`，并对低速毛刺做死区处理。
 - 更新 LCD 状态页：显示 Flash/IMU/光流/ToF 初始化状态、两路编码器速度、按键状态和错误日志摘要。
 - 更新 `scripts/manual_download.sh run` 自动化流程，支持配置、构建、OpenOCD 下载、校验和 reset 一次完成，适配 DAPLink 长时间下载。
 - 使用 `graphify update . --no-cluster` 生成本地代码结构图，`graphify-out/` 作为本地缓存加入 `.gitignore`，不随源码提交。

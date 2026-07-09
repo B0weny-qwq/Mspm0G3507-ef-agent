@@ -22,6 +22,7 @@ enum {
     APP_IMU_RAW_FILTER_ZERO_THRESHOLD = 2,
     APP_IMU_GYRO_1000DPS_UDPS_PER_LSB = 35000,
     APP_IMU_STATUS_UPDATE_MS = 100U,
+    APP_IMU_TASK_MS = 5U,
 };
 
 static app_imu_fifo_sample_t g_imu_fifo[APP_IMU_FIFO_CAPACITY];
@@ -39,12 +40,49 @@ static uint32_t g_last_sample_us;
 static uint32_t g_last_status_us;
 static bool g_imu_sampling_ready;
 
+static void app_imu_task(void *ctx);
 static void app_imu_fifo_push(const app_imu_fifo_sample_t *sample);
 static void app_imu_accumulate_bias(const board_imu_sample_t *sample);
 static void app_imu_process_sample(const board_imu_sample_t *sample, uint32_t timestamp_us);
 static void app_imu_prepare_unbiased_sample(app_imu_fifo_sample_t *sample);
 static void app_imu_update_attitude(const app_imu_fifo_sample_t *sample);
 static void app_imu_update_status_line(const app_imu_fifo_sample_t *sample);
+
+/** IMU 采样周期任务表。 */
+static const ef_task_config_t g_app_imu_tasks[] = {
+    {
+        .run = app_imu_task,
+        .ctx = NULL,
+        .period_ms = APP_IMU_TASK_MS,
+        .run_on_start = true,
+    },
+};
+
+/** IMU 采样和姿态模块描述。 */
+static const app_module_t g_app_imu_module = {
+    .name = "imu",
+    .init = app_imu_init,
+    .tasks = g_app_imu_tasks,
+    .task_count = APP_ARRAY_COUNT(g_app_imu_tasks),
+    .events = NULL,
+    .event_count = 0U,
+};
+
+const app_module_t *app_imu_module(void)
+{
+    return &g_app_imu_module;
+}
+
+/**
+ * @brief 调度器任务包装，保持 IMU 采样周期定义留在 IMU 模块内。
+ *
+ * @param ctx 任务上下文，当前未使用。
+ */
+static void app_imu_task(void *ctx)
+{
+    (void) ctx;
+    app_imu_tick_5ms();
+}
 
 void app_imu_init(void)
 {

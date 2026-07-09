@@ -2,17 +2,31 @@
 
 `App/` 是应用编排层，只依赖 `BoardDevices/`、`Components/` 和 `Services/`。这里不直接包含 TI DriverLib、SysConfig、裸引脚宏或芯片寄存器头文件。
 
+## 目录
+
+| 目录 | 职责 |
+| --- | --- |
+| `App/Src` | 应用入口和模块装配，只保留 `main.c`、`app.c`、`app_modules.c` |
+| `App/Modules/Display` | LCD 状态页、图形显示、错误日志摘要、按键状态显示 |
+| `App/Modules/Input` | BOOT 按键轮询、状态机和按键事件分发 |
+| `App/Modules/Motion` | IMU、编码器、后续速度/角度闭环 |
+| `App/Modules/System` | 启动探测、LED 心跳等系统辅助功能 |
+| `App/Inc` | App 公共接口和 `app_module_t` 模块描述 |
+
 ## 模块
 
-| 模块 | 职责 | 周期/触发 |
+| 模块 | 维护位置 | 周期/触发 |
 | --- | --- | --- |
-| `app.c` | 应用启动、任务表、事件表和主调度入口 | `app_start()` / `app_run_forever()` |
-| `app_board_probe` | 启动阶段 Flash、IMU、光流、ToF 在线探测 | 启动时一次 |
-| `app_status_page` | LCD 状态页、错误日志摘要、心跳块、脏矩形服务 | 100 ms |
-| `app_encoder` | 两路编码器速度读取、低通滤波和显示 | 50 ms |
-| `app_imu` | LSM6DSR DMA 采样消费、实测 dt、启动零漂、低通预处理、32 帧 FIFO 和姿态缓存 | 5 ms |
-| `app_button` | BOOT 按键轮询、状态机和事件分发 | 10 ms |
-| `main.c` | Platform 启动胶水、日志/微秒时间源注入和 SysTick ISR | 系统入口 |
+| `app.c` | `App/Src/app.c` | `app_start()` / `app_run_forever()` |
+| `app_modules` | `App/Src/app_modules.c` | 启动时提供模块表 |
+| `app_board_probe` | `App/Modules/System` | 启动时一次 |
+| `app_status_page` | `App/Modules/Display` | 100 ms |
+| `app_encoder` | `App/Modules/Motion` | 50 ms |
+| `app_imu` | `App/Modules/Motion` | 5 ms |
+| `app_speed_control` | `App/Modules/Motion` | 50 ms |
+| `app_button` | `App/Modules/Input` | 10 ms |
+| `app_pid_tune_page` | `App/Modules/Display` | 100 ms / 按键事件 |
+| `app_led` | `App/Modules/System` | 500 ms |
 
 ## 状态机和轮询
 
@@ -24,7 +38,9 @@ App 层轮询由 `Services/ef_scheduler` 统一调度，不在业务模块里写
 
 ## 扩展约定
 
-- 新业务模块放在 `App/Inc` 和 `App/Src`，暴露 `init/start/tick` 这类明确入口。
+- 新业务模块放在对应的 `App/Modules/<domain>` 目录，并暴露 `const app_module_t *app_xxx_module(void)`。
+- `App/Src/app.c` 不写业务 task wrapper；模块自己的周期、任务函数和回调留在模块 `.c`。
+- 只有新增/删除模块或调整启动顺序时，才修改 `App/Src/app_modules.c`。
 - 需要硬件资源时先加 `BoardDevices` API，再由 App 调用。
 - 纯算法、滤波器或状态机优先放到 `Components/`。
 - 修改任务周期、轮询路径或状态机时，同步更新 README、CHANGELOG 和状态机图。

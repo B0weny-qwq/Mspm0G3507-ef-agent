@@ -1,6 +1,7 @@
 #ifndef APP_STATUS_PAGE_H
 #define APP_STATUS_PAGE_H
 
+#include "app_module.h"
 #include "ef_log.h"
 
 #include <stdbool.h>
@@ -57,6 +58,28 @@ bool app_status_page_init_lcd(void);
 bool app_status_page_is_ready(void);
 
 /**
+ * @brief 控制状态页显示开关。
+ *
+ * 关闭时保留状态文本缓存，但停止向 LCD 刷新并关闭背光；再次打开会重绘当前状态页。
+ *
+ * @param enabled `true` 打开显示，`false` 关闭显示。
+ */
+void app_status_page_set_display_enabled(bool enabled);
+
+/**
+ * @brief 切换状态页显示开关。
+ */
+void app_status_page_toggle_display_enabled(void);
+
+/**
+ * @brief 查询状态页显示是否打开。
+ *
+ * @return `true` 显示打开。
+ * @return `false` 显示关闭或 LCD 未就绪。
+ */
+bool app_status_page_is_display_enabled(void);
+
+/**
  * @brief 设置指定状态行文本。
  *
  * @param line 状态行号。
@@ -79,6 +102,11 @@ void app_status_page_service(void);
  * @param ctx 用户上下文。
  */
 void app_status_page_error_log_sink(ef_log_level_t level, const char *line, void *ctx);
+
+/**
+ * @brief 获取 LCD 状态页显示模块描述。
+ */
+const app_module_t *app_status_page_module(void);
 
 #ifdef __cplusplus
 }

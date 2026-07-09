@@ -16,8 +16,8 @@ static const ef_pwm_channel_t g_pwm_channels[] = {
     [EF_PWM_PWM7] = { PWM_TIMG6_INST, DL_TIMER_CC_0_INDEX, PWM_TIMG6_PERIOD },
     [EF_PWM_PWM8] = { PWM_TIMG6_INST, DL_TIMER_CC_1_INDEX, PWM_TIMG6_PERIOD },
     [EF_PWM_BUZZER] = { PWM_TIMG12_INST, DL_TIMER_CC_0_INDEX, PWM_TIMG12_PERIOD },
-    [EF_PWM_MOTOR1] = { PWM_TIMA1_INST, DL_TIMER_CC_0_INDEX, PWM_TIMA1_PERIOD },
-    [EF_PWM_MOTOR2] = { PWM_TIMA1_INST, DL_TIMER_CC_1_INDEX, PWM_TIMA1_PERIOD },
+    [EF_PWM_MOTOR1] = { PWM_TIMG6_INST, DL_TIMER_CC_1_INDEX, PWM_TIMG6_PERIOD },
+    [EF_PWM_MOTOR2] = { PWM_TIMA0_INST, DL_TIMER_CC_1_INDEX, PWM_TIMA0_PERIOD },
 };
 
 /* 查询逻辑 PWM 编号对应的通道描述。 */
@@ -38,23 +38,35 @@ void ef_pwm_init(void)
     }
 }
 
-/* 按千分比设置 PWM 占空比。 */
+/* 按千分比设置 PWM 占空比。
+ *
+ * 当前使用 DL_TIMER_PWM_MODE_EDGE_ALIGN，也就是 down-count PWM：
+ * LOAD 事件拉高，compare-down 事件拉低。compare 越小，占空越大。
+ * compare=0 是边界值，会表现异常；逻辑 0% 映射到 period-1，逻辑 100%
+ * 映射到 1。
+ */
 bool ef_pwm_set_duty_permille(ef_pwm_id_t id, uint16_t duty_permille)
 {
     const ef_pwm_channel_t *const channel = ef_pwm_channel(id);
+    const uint32_t compare_min = 1U;
+    uint32_t compare_max;
     uint32_t compare_value;
 
     if (channel == NULL) {
         return false;
     }
 
+    compare_max = channel->period - 1U;
     if (duty_permille > 1000U) {
         duty_permille = 1000U;
     }
 
-    compare_value = ((channel->period + 1U) * (uint32_t) duty_permille) / 1000U;
-    if (compare_value > channel->period) {
-        compare_value = channel->period;
+    compare_value = compare_max -
+        (((compare_max - compare_min) * (uint32_t) duty_permille) / 1000U);
+    if (compare_value < compare_min) {
+        compare_value = compare_min;
+    } else if (compare_value > compare_max) {
+        compare_value = compare_max;
     }
 
     return ef_pwm_set_compare_value(id, compare_value);

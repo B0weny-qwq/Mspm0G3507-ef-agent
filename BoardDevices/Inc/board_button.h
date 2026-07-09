@@ -11,8 +11,18 @@ extern "C" {
  * @brief 板级按钮编号。
  */
 typedef enum {
-    /** 开发板 BOOT 按钮。 */
-    BOARD_BUTTON_BOOT = 0,
+    /** PB05 调参加按钮。 */
+    BOARD_BUTTON_B05 = 0,
+    /** PB04 调参减按钮。 */
+    BOARD_BUTTON_B04,
+    /** PB20 参数切换按钮。 */
+    BOARD_BUTTON_B20,
+    /** PB21/BOOT 启停按钮。 */
+    BOARD_BUTTON_B21,
+    /** 兼容旧名称，仍指向 PB21/BOOT。 */
+    BOARD_BUTTON_BOOT = BOARD_BUTTON_B21,
+    /** 板级按钮数量。 */
+    BOARD_BUTTON_COUNT,
 } board_button_id_t;
 
 /**

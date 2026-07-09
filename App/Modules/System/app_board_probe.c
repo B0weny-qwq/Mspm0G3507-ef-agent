@@ -16,6 +16,21 @@
  * App 入口无需了解各传感器的寄存器、总线实例或片选细节。
  */
 
+/** 启动探测模块描述。 */
+static const app_module_t g_app_board_probe_module = {
+    .name = "board_probe",
+    .init = app_board_probe_run,
+    .tasks = NULL,
+    .task_count = 0U,
+    .events = NULL,
+    .event_count = 0U,
+};
+
+const app_module_t *app_board_probe_module(void)
+{
+    return &g_app_board_probe_module;
+}
+
 /**
  * @brief 执行启动阶段板级外设探测。
  */
