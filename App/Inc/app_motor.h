@@ -8,6 +8,9 @@
 extern "C" {
 #endif
 
+/** Shared base target used by motor initialization, drive control, and UI. */
+#define APP_MOTOR_DEFAULT_TARGET_SPEED_50MS 120
+
 /**
  * @brief 应用层电机编号。
  *

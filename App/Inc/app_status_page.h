@@ -18,6 +18,8 @@ extern "C" {
 typedef enum {
     /** 初始化/Flash 状态行。 */
     APP_STATUS_LINE_INIT = 0,
+    /** 行驶计时状态行。 */
+    APP_STATUS_LINE_TIMER,
     /** IMU 状态行。 */
     APP_STATUS_LINE_IMU,
     /** 光流状态行。 */

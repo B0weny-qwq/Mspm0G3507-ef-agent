@@ -17,12 +17,10 @@
  */
 
 enum {
-    /** 双轮默认目标速度，单位为 step/50ms。 */
-    APP_MOTOR_DEFAULT_TARGET_SPEED_50MS = 100,
     /** 默认 Q8 比例增益。 */
-    APP_MOTOR_DEFAULT_KP_Q8 = 28,
+    APP_MOTOR_DEFAULT_KP_Q8 = 20,
     /** 默认 Q8 积分增益。 */
-    APP_MOTOR_DEFAULT_KI_Q8 = 10,
+    APP_MOTOR_DEFAULT_KI_Q8 = 8,
     /** 默认 Q8 微分增益。 */
     APP_MOTOR_DEFAULT_KD_Q8 = 1,
     /** 默认积分限幅，单位为 step/50ms 误差样本。 */

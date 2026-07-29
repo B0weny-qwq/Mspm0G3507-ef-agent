@@ -14,6 +14,7 @@ typedef struct {
     uint16_t maximum_pulse_us;
     uint16_t proportional_us;
     uint16_t derivative_us;
+    uint16_t maximum_step_us;
 } app_servo_config_t;
 
 bool app_servo_init(void);

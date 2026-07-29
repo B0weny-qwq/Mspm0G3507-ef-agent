@@ -7,6 +7,7 @@
 #include "app_board_probe.h"
 #include "app_button.h"
 #include "app_encoder.h"
+#include "app_finish_stop.h"
 #include "app_grayscale.h"
 #include "app_line_track.h"
 #if APP_ENABLE_IMU_PIPELINE
@@ -22,6 +23,7 @@
 #include "ef_event.h"
 #include "ef_log.h"
 #include "ef_scheduler.h"
+#include "ef_time.h"
 
 /**
  * @file app.c
@@ -71,12 +73,27 @@ enum {
     APP_LED_TASK_MS = 500U,
 };
 
+enum {
+    APP_DRIVE_BASE_SPEED_50MS = APP_MOTOR_DEFAULT_TARGET_SPEED_50MS,
+    APP_DRIVE_SPEED_STEP_50MS = 10,
+    APP_DRIVE_MAX_DIFFERENTIAL_50MS = 10,
+    APP_DRIVE_STRAIGHT_ANGLE_LIMIT_Q8 = 5 * 256,
+    APP_DRIVE_MAX_ANGLE_Q8 = 20 * 256,
+};
+
 /** 日志标签。 */
 static const char *TAG = "app";
+static int32_t g_drive_desired_speeds_50ms[APP_MOTOR_COUNT] = {
+    APP_DRIVE_BASE_SPEED_50MS,
+    APP_DRIVE_BASE_SPEED_50MS,
+};
+static bool g_drive_differential_active;
 
 static void app_button_task(void *ctx);
 static void app_button_status_handler(app_button_id_t id, ef_button_event_t event, void *ctx);
 static void app_encoder_task(void *ctx);
+static void app_drive_speed_apply_step(void);
+static void app_drive_speed_update(const app_line_track_status_t *status);
 static void app_grayscale_task(void *ctx);
 static void app_line_track_debug_task(void *ctx);
 #if APP_ENABLE_IMU_PIPELINE
@@ -212,6 +229,7 @@ void app_start(ef_idle_fn_t idle)
     app_encoder_init();
     app_grayscale_init();
     app_line_track_init();
+    app_finish_stop_init();
     (void) app_servo_init();
     app_motor_init();
     if (board_motor_init()) {
@@ -221,7 +239,8 @@ void app_start(ef_idle_fn_t idle)
             app_motor_output_handler, NULL);
 
         if (motor1_bound && motor2_bound) {
-            EF_LOGI("init", "motor pid ready: target 100, gate off");
+            EF_LOGI("init", "motor pid ready: base %d, max diff %d, gate off",
+                APP_DRIVE_BASE_SPEED_50MS, APP_DRIVE_MAX_DIFFERENTIAL_50MS);
         } else {
             EF_LOGE("motor", "output binding failed");
         }
@@ -294,6 +313,11 @@ static void app_grayscale_task(void *ctx)
     app_grayscale_tick_10ms();
     if (app_grayscale_get_active_mask(&active_mask)) {
         app_line_track_update(active_mask);
+        app_drive_speed_update(app_line_track_get_status());
+        if (app_finish_stop_update(ef_time_micros(), active_mask)) {
+            app_motor_set_global_enabled(false);
+            EF_LOGI("motor", "finish line: 16ch active for 3 scans, stopped");
+        }
     }
 }
 
@@ -348,6 +372,7 @@ static void app_inav_task(void *ctx)
 static void app_motor_task(void *ctx)
 {
     (void) ctx;
+    app_drive_speed_apply_step();
     app_motor_tick_50ms();
 }
 #endif
@@ -378,6 +403,79 @@ static void app_motor_output_handler(app_motor_id_t id, const app_motor_output_t
     }
 
     (void) board_motor_set_output(board_id, output->enable, signed_duty_permille);
+    if (output->enable) {
+        app_finish_stop_on_pwm_started(ef_time_micros());
+    } else if (!app_motor_is_global_enabled()) {
+        app_finish_stop_stop(ef_time_micros());
+    }
+}
+
+static void app_drive_speed_update(const app_line_track_status_t *status)
+{
+    int32_t angle_magnitude_q8;
+    int32_t differential_50ms;
+    bool differential_active;
+
+    if ((status == NULL) || !status->track_detected) {
+        return;
+    }
+
+    angle_magnitude_q8 = status->angle_deg_q8;
+    if (angle_magnitude_q8 < 0) {
+        angle_magnitude_q8 = -angle_magnitude_q8;
+    }
+    differential_active = angle_magnitude_q8 >= APP_DRIVE_STRAIGHT_ANGLE_LIMIT_Q8;
+    if (!differential_active) {
+        g_drive_desired_speeds_50ms[APP_MOTOR_1] = APP_DRIVE_BASE_SPEED_50MS;
+        g_drive_desired_speeds_50ms[APP_MOTOR_2] = APP_DRIVE_BASE_SPEED_50MS;
+    } else {
+        differential_50ms = (angle_magnitude_q8 * APP_DRIVE_MAX_DIFFERENTIAL_50MS +
+            (APP_DRIVE_MAX_ANGLE_Q8 / 2)) / APP_DRIVE_MAX_ANGLE_Q8;
+        if (differential_50ms > APP_DRIVE_MAX_DIFFERENTIAL_50MS) {
+            differential_50ms = APP_DRIVE_MAX_DIFFERENTIAL_50MS;
+        }
+
+        if (status->angle_deg_q8 > 0) {
+            /* Positive steering angle is left: M1/right is the outer wheel. */
+            g_drive_desired_speeds_50ms[APP_MOTOR_1] =
+                APP_DRIVE_BASE_SPEED_50MS + differential_50ms;
+            g_drive_desired_speeds_50ms[APP_MOTOR_2] =
+                APP_DRIVE_BASE_SPEED_50MS - differential_50ms;
+        } else {
+            g_drive_desired_speeds_50ms[APP_MOTOR_1] =
+                APP_DRIVE_BASE_SPEED_50MS - differential_50ms;
+            g_drive_desired_speeds_50ms[APP_MOTOR_2] =
+                APP_DRIVE_BASE_SPEED_50MS + differential_50ms;
+        }
+    }
+
+    if (differential_active != g_drive_differential_active) {
+        g_drive_differential_active = differential_active;
+        EF_LOGI("drive", "%s angle=%ld/256 desired R=%ld L=%ld",
+            differential_active ? "differential" : "straight", (long) angle_magnitude_q8,
+            (long) g_drive_desired_speeds_50ms[APP_MOTOR_1],
+            (long) g_drive_desired_speeds_50ms[APP_MOTOR_2]);
+    }
+}
+
+static void app_drive_speed_apply_step(void)
+{
+    for (uint32_t i = 0U; i < (uint32_t) APP_MOTOR_COUNT; i++) {
+        const app_motor_id_t id = (app_motor_id_t) i;
+        const int32_t current_speed_50ms = app_motor_get_target_speed_50ms(id);
+        int32_t delta_50ms = g_drive_desired_speeds_50ms[i] - current_speed_50ms;
+
+        if (delta_50ms > APP_DRIVE_SPEED_STEP_50MS) {
+            delta_50ms = APP_DRIVE_SPEED_STEP_50MS;
+        } else if (delta_50ms < -APP_DRIVE_SPEED_STEP_50MS) {
+            delta_50ms = -APP_DRIVE_SPEED_STEP_50MS;
+        }
+
+        if (delta_50ms != 0) {
+            (void) app_motor_set_target_speed_50ms(id,
+                current_speed_50ms + delta_50ms);
+        }
+    }
 }
 
 /**
@@ -412,7 +510,16 @@ static void app_button_status_handler(app_button_id_t id, ef_button_event_t even
  */
 static void app_lcd_task(void *ctx)
 {
+    const uint32_t now_us = ef_time_micros();
+    const uint32_t elapsed_deciseconds = app_finish_stop_get_elapsed_us(now_us) / 100000U;
+    const uint32_t elapsed_seconds = elapsed_deciseconds / 10U;
+
     (void) ctx;
+    app_status_page_set_line(APP_STATUS_LINE_TIMER, "%s %02lu:%02lu.%lu",
+        app_finish_stop_is_running() ? "RUN" : "STOP",
+        (unsigned long) (elapsed_seconds / 60U),
+        (unsigned long) (elapsed_seconds % 60U),
+        (unsigned long) (elapsed_deciseconds % 10U));
     app_status_page_service();
 }
 

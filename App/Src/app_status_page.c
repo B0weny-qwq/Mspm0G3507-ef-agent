@@ -55,6 +55,7 @@ typedef struct {
 /** 状态行到 LCD 坐标的映射表。 */
 static const app_status_line_view_t g_line_views[APP_STATUS_LINE_COUNT] = {
     [APP_STATUS_LINE_INIT] = {32U},
+    [APP_STATUS_LINE_TIMER] = {22U},
     [APP_STATUS_LINE_IMU] = {42U},
     [APP_STATUS_LINE_FLOW] = {54U},
     [APP_STATUS_LINE_TOF] = {66U},
@@ -97,11 +98,12 @@ void app_status_page_reset(void)
     g_grayscale_grid_drawn = false;
 
     snprintf(g_lines[APP_STATUS_LINE_INIT], APP_STATUS_TEXT_LEN, "PID: OFF");
+    snprintf(g_lines[APP_STATUS_LINE_TIMER], APP_STATUS_TEXT_LEN, "STOP 00:00.0");
     snprintf(g_lines[APP_STATUS_LINE_IMU], APP_STATUS_TEXT_LEN, "IMU: pending");
     snprintf(g_lines[APP_STATUS_LINE_FLOW], APP_STATUS_TEXT_LEN, "FLOW: pending");
     snprintf(g_lines[APP_STATUS_LINE_TOF], APP_STATUS_TEXT_LEN, "TOF: pending");
-    snprintf(g_lines[APP_STATUS_LINE_ENCODER1], APP_STATUS_TEXT_LEN, "M1 T100 E+0");
-    snprintf(g_lines[APP_STATUS_LINE_ENCODER2], APP_STATUS_TEXT_LEN, "M2 T100 E+0");
+    snprintf(g_lines[APP_STATUS_LINE_ENCODER1], APP_STATUS_TEXT_LEN, "M1 T--- E+0");
+    snprintf(g_lines[APP_STATUS_LINE_ENCODER2], APP_STATUS_TEXT_LEN, "M2 T--- E+0");
     snprintf(g_lines[APP_STATUS_LINE_BUTTON], APP_STATUS_TEXT_LEN, "BOOT: IDLE");
     snprintf(g_lines[APP_STATUS_LINE_ERROR], APP_STATUS_TEXT_LEN, "ERR: none");
 }

@@ -23,6 +23,19 @@ static uint16_t app_servo_clamp_pulse(int32_t pulse_us)
     return (uint16_t) pulse_us;
 }
 
+static uint16_t app_servo_step_toward(uint16_t target_pulse_us)
+{
+    int32_t delta_us = (int32_t) target_pulse_us - g_pulse_us;
+
+    if (delta_us > g_config.maximum_step_us) {
+        delta_us = g_config.maximum_step_us;
+    } else if (delta_us < -(int32_t) g_config.maximum_step_us) {
+        delta_us = -(int32_t) g_config.maximum_step_us;
+    }
+
+    return (uint16_t) ((int32_t) g_pulse_us + delta_us);
+}
+
 bool app_servo_init(void)
 {
     g_config.center_pulse_us = 1500U;
@@ -30,6 +43,7 @@ bool app_servo_init(void)
     g_config.maximum_pulse_us = 2000U;
     g_config.proportional_us = 350U;
     g_config.derivative_us = 40U;
+    g_config.maximum_step_us = 25U;
     g_previous_error_q15 = 0;
     g_pulse_us = g_config.center_pulse_us;
     g_enabled = false;
@@ -37,10 +51,11 @@ bool app_servo_init(void)
 
     if (g_initialized) {
         app_servo_set_enabled(true);
-        EF_LOGI("servo", "PB27 HW PWM 50Hz, center=%uus P=%u D=%u",
+        EF_LOGI("servo", "PB27 HW PWM 50Hz, center=%uus P=%u D=%u step=%uus",
             (unsigned int) g_config.center_pulse_us,
             (unsigned int) g_config.proportional_us,
-            (unsigned int) g_config.derivative_us);
+            (unsigned int) g_config.derivative_us,
+            (unsigned int) g_config.maximum_step_us);
     } else {
         EF_LOGE("servo", "PB27 init failed");
     }
@@ -57,7 +72,9 @@ bool app_servo_set_config(const app_servo_config_t *config)
         (config->center_pulse_us < config->minimum_pulse_us) ||
         (config->center_pulse_us > config->maximum_pulse_us) ||
         (config->proportional_us > 1000U) ||
-        (config->derivative_us > 1000U)) {
+        (config->derivative_us > 1000U) ||
+        (config->maximum_step_us == 0U) ||
+        (config->maximum_step_us > 500U)) {
         return false;
     }
 
@@ -113,6 +130,6 @@ void app_servo_tick_20ms(void)
     pulse_us += (error_delta * g_config.derivative_us) / APP_LINE_TRACK_ERROR_Q15_ONE;
 
     g_previous_error_q15 = status->normalized_error_q15;
-    g_pulse_us = app_servo_clamp_pulse(pulse_us);
+    g_pulse_us = app_servo_step_toward(app_servo_clamp_pulse(pulse_us));
     board_servo_write_pulse_us(g_pulse_us);
 }

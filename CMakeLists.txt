@@ -133,6 +133,7 @@ add_library(ef_app
   App/Src/app_board_probe.c
   App/Src/app_button.c
   App/Src/app_encoder.c
+  App/Src/app_finish_stop.c
   App/Src/app_grayscale.c
   App/Src/app_line_track.c
   App/Src/app_imu.c

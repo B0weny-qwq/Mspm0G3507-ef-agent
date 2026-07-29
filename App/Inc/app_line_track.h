@@ -15,13 +15,14 @@ typedef struct {
     int8_t error_direction;
     uint16_t center_dead_zone_q15;
     uint8_t intersection_threshold;
+    uint8_t error_filter_shift;
 } app_line_track_config_t;
 
 typedef struct {
     uint16_t active_mask;
     uint8_t active_count;
     uint8_t active_channels[APP_LINE_TRACK_CHANNEL_COUNT];
-    int16_t weight_sum;
+    int16_t weight_sum_q8;
     int16_t position_q8;
     int16_t normalized_error_q15;
     int16_t angle_deg_q8;
