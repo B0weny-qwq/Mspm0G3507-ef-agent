@@ -1,5 +1,6 @@
 #include "app_motor.h"
 
+#include "app_encoder.h"
 #include "app_status_page.h"
 #include "board_encoder.h"
 #include "ef_log.h"
@@ -19,17 +20,17 @@ enum {
     /** 双轮默认目标速度，单位为 step/50ms。 */
     APP_MOTOR_DEFAULT_TARGET_SPEED_50MS = 100,
     /** 默认 Q8 比例增益。 */
-    APP_MOTOR_DEFAULT_KP_Q8 = 35,
+    APP_MOTOR_DEFAULT_KP_Q8 = 28,
     /** 默认 Q8 积分增益。 */
-    APP_MOTOR_DEFAULT_KI_Q8 = 15,
+    APP_MOTOR_DEFAULT_KI_Q8 = 10,
     /** 默认 Q8 微分增益。 */
     APP_MOTOR_DEFAULT_KD_Q8 = 1,
     /** 默认积分限幅，单位为 step/50ms 误差样本。 */
     APP_MOTOR_DEFAULT_INTEGRAL_LIMIT = 5120,
     /** 默认输出限幅，单位 permille。 */
-    APP_MOTOR_DEFAULT_OUTPUT_LIMIT_PERMILLE = 600,
+    APP_MOTOR_DEFAULT_OUTPUT_LIMIT_PERMILLE = 1000,
     /** M2 left-wheel minimum drive used to overcome its low-speed dead zone. */
-    APP_MOTOR_LEFT_MIN_DRIVE_PERMILLE = 80,
+    APP_MOTOR_LEFT_MIN_DRIVE_PERMILLE = 0,
 };
 
 /**
@@ -104,9 +105,18 @@ void app_motor_init(void)
  */
 void app_motor_tick_50ms(void)
 {
+    app_encoder_snapshot_t encoder_snapshot;
+    const bool encoder_valid = app_encoder_get_snapshot(&encoder_snapshot);
+
     for (uint32_t i = 0U; i < (uint32_t) APP_MOTOR_COUNT; i++) {
         app_motor_state_t *const motor = &g_motors[i];
         const int32_t measured = board_encoder_get_speed_50ms(motor->encoder);
+        const app_encoder_id_t encoder_id = (i == (uint32_t) APP_MOTOR_1) ?
+            APP_ENCODER_2 : APP_ENCODER_1;
+        const int32_t raw_steps = encoder_valid ? encoder_snapshot.delta_steps[encoder_id] : 0;
+        int32_t error;
+        int32_t derivative;
+        int32_t pid_output;
         int32_t output;
 
         motor->measured_speed_50ms = measured;
@@ -117,7 +127,10 @@ void app_motor_tick_50ms(void)
             continue;
         }
 
-        output = ef_pid_i32_update(&motor->pid, motor->target_speed_50ms, measured);
+        error = motor->target_speed_50ms - measured;
+        derivative = error - motor->pid.previous_error;
+        pid_output = ef_pid_i32_update(&motor->pid, motor->target_speed_50ms, measured);
+        output = pid_output;
         if (i == (uint32_t) APP_MOTOR_2) {
             if (motor->target_speed_50ms > 0) {
                 if (output < 0) {
@@ -136,6 +149,16 @@ void app_motor_tick_50ms(void)
 
         motor->output_permille = (int16_t) output;
         app_motor_apply_output((app_motor_id_t) i, motor);
+        EF_LOGI("pid", "PID,M%lu,T=%ld,RAW=%ld,V=%ld,E=%ld,ISUM=%ld,DE=%ld,U=%ld,PWM=%ld",
+            (unsigned long) i + 1UL,
+            (long) motor->target_speed_50ms,
+            (long) raw_steps,
+            (long) measured,
+            (long) error,
+            (long) motor->pid.integral,
+            (long) derivative,
+            (long) pid_output,
+            (long) output);
     }
 
     app_motor_refresh_status_page();
@@ -154,6 +177,15 @@ void app_motor_set_global_enabled(bool enabled)
 
     app_motor_refresh_status_page();
     EF_LOGI("motor", "global output %s", enabled ? "enabled" : "disabled");
+    if (enabled) {
+        EF_LOGI("pid", "CFG,KP=%d,KI=%d,KD=%d,ILIM=%d,OLIM=%d,LEFTMIN=%d",
+            APP_MOTOR_DEFAULT_KP_Q8,
+            APP_MOTOR_DEFAULT_KI_Q8,
+            APP_MOTOR_DEFAULT_KD_Q8,
+            APP_MOTOR_DEFAULT_INTEGRAL_LIMIT,
+            APP_MOTOR_DEFAULT_OUTPUT_LIMIT_PERMILLE,
+            APP_MOTOR_LEFT_MIN_DRIVE_PERMILLE);
+    }
 }
 
 bool app_motor_is_global_enabled(void)
