@@ -75,7 +75,7 @@ enum {
 
 enum {
     APP_DRIVE_BASE_SPEED_50MS = APP_MOTOR_DEFAULT_TARGET_SPEED_50MS,
-    APP_DRIVE_SPEED_STEP_50MS = 10,
+    APP_DRIVE_SPEED_STEP_50MS = 2,
     APP_DRIVE_MAX_DIFFERENTIAL_50MS = 10,
     APP_DRIVE_STRAIGHT_ANGLE_LIMIT_Q8 = 5 * 256,
     APP_DRIVE_MAX_ANGLE_Q8 = 20 * 256,
@@ -316,7 +316,7 @@ static void app_grayscale_task(void *ctx)
         app_drive_speed_update(app_line_track_get_status());
         if (app_finish_stop_update(ef_time_micros(), active_mask)) {
             app_motor_set_global_enabled(false);
-            EF_LOGI("motor", "finish line: 16ch active for 3 scans, stopped");
+            EF_LOGI("motor", "finish line: middle 6 active for 2 scans, stopped");
         }
     }
 }

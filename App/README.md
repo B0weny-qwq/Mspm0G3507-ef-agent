@@ -10,7 +10,7 @@
 | `app_board_probe` | 启动阶段 Flash、IMU、光流、ToF 在线探测 | 启动时一次 |
 | `app_status_page` | LCD 状态页、错误日志摘要、心跳块、脏矩形服务 | 100 ms |
 | `app_encoder` | 两路编码器速度读取、低通滤波和显示 | 50 ms |
-| `app_finish_stop` | PWM 启动后行驶计时、5 秒屏蔽及连续三帧全灰度停车 | 灰度 10 ms / LCD 100 ms |
+| `app_finish_stop` | PWM 启动后行驶计时、5 秒屏蔽及中间六路连续两帧全黑停车 | 灰度 10 ms / LCD 100 ms |
 | `app_grayscale` | 16 路数字灰度传感器全通道扫描与高有效位图缓存 | 100 ms |
 | `app_inav` | IMU yaw + 编码器增量的惯导框架，保留外部里程计注入接口 | 50 ms |
 | `app_angle_pid` | roll/pitch/yaw 应用层角度外环 PID，输出留给上层混控/速度环绑定 | 10 ms |
