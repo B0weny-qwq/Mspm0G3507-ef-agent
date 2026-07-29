@@ -2,7 +2,7 @@
 
 /* 简单双态调度器：由 SysTick 累积周期，到期后在前台主循环执行任务。 */
 
-#define EF_SCHEDULER_MAX_TASKS 8U
+#define EF_SCHEDULER_MAX_TASKS 10U
 
 typedef struct {
     ef_task_fn_t run;

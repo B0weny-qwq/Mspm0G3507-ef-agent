@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | `ef_log` | UART 日志格式化、级别过滤、错误旁路 | 时间源由 `main()` 注入，输出走 `board_console` |
 | `ef_event` | 简单事件绑定和同步分发 | `ef_event_binding_t` 表 |
-| `ef_scheduler` | 1 ms tick 驱动的前台协作式调度器 | `elapsed_ms`、`ready` |
+| `ef_scheduler` | 1 ms tick 驱动的前台协作式调度器，最多 10 个任务 | `elapsed_ms`、`ready` |
 | `ef_time` | 微秒时间戳抽象 | `main()` 注入 `ef_platform_micros()`，App 用于实测 `dt` |
 
 ## 状态机

@@ -1,5 +1,13 @@
 # 更新日志
 
+## 2026-07-29
+
+- 新增 16 路数字灰度传感器链路：PA25/AS 配置为高有效 GPIO 输入，PA24/PB24/PB25/PA22 分别作为 S0-S3 地址输出；按 `S0=bit0` 至 `S3=bit3` 全扫描并缓存 16 位结果。
+- 新增 `board_grayscale` 与 `app_grayscale` 分层 API，前台任务每 100 ms 扫描一次，业务回调可读取完整位图或单路缓存而不直接操作 GPIO。
+- 修正 `embedforge.yaml` 和引脚文档中将 PA25 误标为 ADC/模拟输入的描述，改为数字复用器资源；同步更新 App、BoardDevices、Platform、Drivers、Services README 及调度文档。
+- 将协作式调度器任务容量由 8 提升到 10，保证后续重新启用 IMU 与电机速度环时不会静默丢弃灰度扫描任务。
+- 使用 Arm GNU Toolchain 15.2.1、CMake 和 Ninja 完成全量固件构建验证，产物大小为 text 23520、data 88、bss 3896；未执行硬件刷写。
+
 ## 2026-06-07
 
 - 新增 `app_angle_pid` 应用层 roll/pitch/yaw 角度外环，输入使用 `app_imu` Q10 欧拉角，PID 增益使用 Q8，输出通过 App 回调交给后续混控、速度环或业务模块，不直接绑定 PWM/GPIO。

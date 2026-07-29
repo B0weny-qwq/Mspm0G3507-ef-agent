@@ -1,8 +1,11 @@
 #include "app_board_probe.h"
 
+#include "app_features.h"
 #include "app_status_page.h"
 #include "board_flash.h"
+#if APP_ENABLE_IMU_PIPELINE
 #include "board_imu.h"
+#endif
 #include "board_optical_flow.h"
 #include "board_tof.h"
 #include "ef_log.h"
@@ -31,6 +34,7 @@ void app_board_probe_run(void)
         EF_LOGE("flash", "init failed");
     }
 
+#if APP_ENABLE_IMU_PIPELINE
     if (board_imu_init()) {
         const uint8_t who_am_i = board_imu_read_who_am_i();
 
@@ -40,6 +44,10 @@ void app_board_probe_run(void)
         app_status_page_set_line(APP_STATUS_LINE_IMU, "IMU: FAIL");
         EF_LOGE("imu", "init failed");
     }
+#else
+    app_status_page_set_line(APP_STATUS_LINE_IMU, "IMU: OFF");
+    EF_LOGI("imu", "disabled");
+#endif
 
     if (board_optical_flow_init()) {
         board_optical_flow_id_t flow_id;

@@ -6,7 +6,7 @@
 
 | 驱动 | 外设能力 | 说明 |
 | --- | --- | --- |
-| `ef_gpio` | GPIO 输入输出 | 板级片选、按键、LED、方向输入 |
+| `ef_gpio` | GPIO 输入输出 | 板级片选、按键、LED、方向输入、灰度复用器 AS/S0-S3 |
 | `ef_uart` | UART 同步输出 | 控制台日志 |
 | `ef_spi` | SPI 同步/异步传输 | SPI1 LCD/Flash、SPI0 IMU/光流；支持 DMA 全双工异步传输 |
 | `ef_i2c` | I2C 同步读写 | VL53L0X ToF |

@@ -15,6 +15,7 @@ extern "C" {
 typedef enum {
     /** BOOT 按钮。 */
     APP_BUTTON_BOOT = 0,
+    APP_BUTTON_MOTOR_START,
     /** 按钮数量。 */
     APP_BUTTON_COUNT,
 } app_button_id_t;

@@ -2,7 +2,7 @@
 
 这是一个面向 MSPM0G3507 的 EmbedForge Level 1.5 裸机工程，当前适配
 天猛星 MSPM0G3507 核心板、TFT180/ST7789 屏幕、W25Q128 Flash、LSM6DSR IMU、PMW3901 光流、VL53L0X ToF
-和两路 step/dir 编码器。工程使用 `SysTick 1ms`
+和两路 step/dir 编码器、16 路数字灰度复用传感器。工程使用 `SysTick 1ms`
 作为系统时基，提供轻量级协作式任务调度、事件回调、串口日志、LCD 调试页和
 SPI Flash/IMU/光流/ToF/编码器板级 API，并把 PB21/BOOT 作为普通上拉按键输入。
 
@@ -11,10 +11,10 @@ SPI Flash/IMU/光流/ToF/编码器板级 API，并把 PB21/BOOT 作为普通上�
 - `Platform/`：SysConfig 初始化、时钟、SysTick 和平台服务入口。
 - `Drivers/`：GPIO、UART、SPI、PWM、I2C、CAN 的 MCU 外设抽象，TI DriverLib 只在这里和 `Platform/` 使用。
 - `ChipDrivers/`：ST7789/TFT180、W25Q128、LSM6DSR、PMW3901、VL53L0X 这类外部芯片协议驱动，不绑定板级引脚。
-- `BoardDevices/`：板级 LED、LCD、Flash、IMU、光流、ToF、Button、Console API，隐藏 CS、引脚、SPI/I2C 实例、地址和极性。
+- `BoardDevices/`：板级 LED、LCD、Flash、IMU、光流、ToF、灰度传感器、Button、Console API，隐藏 CS、引脚、SPI/I2C 实例、地址和极性。
 - `Components/`：纯算法组件，例如按键 debounce/单击/双击/长按状态机、整数低通和 IMU 姿态滤波，不依赖硬件、SDK、BoardDevices 或 Drivers。
 - `Services/`：轻量级 logger、event、scheduler、time；日志输出通过 BoardDevices 控制台，时间源由启动入口注入。
-- `App/`：应用任务、事件绑定和启动编排，只依赖 BoardDevices/Services/Components。当前拆分为 `app.c` 编排入口、`app_board_probe` 启动探测、`app_status_page` LCD 状态页、`app_encoder` 编码器速度采样、`app_imu` IMU 采样/FIFO 和 `app_button` 按键事件模块。
+- `App/`：应用任务、事件绑定和启动编排，只依赖 BoardDevices/Services/Components。当前拆分为 `app.c` 编排入口、`app_board_probe` 启动探测、`app_status_page` LCD 状态页、`app_encoder` 编码器速度采样、`app_grayscale` 灰度全扫描、`app_imu` IMU 采样/FIFO 和 `app_button` 按键事件模块。
 
 按 EmbedForge 项目标准核对，当前属于 Level 1.5：有外部芯片和基础服务，但不需要
 Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 `Components/`
@@ -55,6 +55,8 @@ Level 2 的完整设备模型、OSAL、生成配置或 schema/lock。`App/` 和 
 - `ef_capture` 封装 TIMG7/TIMG8 输入捕获，编码器 step 脉冲通过定时器捕获中断计数，不使用 GPIO 外部中断。
 - `board_encoder_*` 绑定两路 step/dir 编码器：编码器 1 为 PA28 step + PA31 dir，编码器 2 为 PA26 step + PA27 dir；板级层处理安装方向反向后的速度极性。
 - `app_encoder` 以 50ms 周期读取编码器增量，用 `ef_lowpass` 一阶整数低通滤波后作为 step/50ms 速度显示，并通过 `app_encoder_get_snapshot()` 向惯导/里程计提供最近一帧增量和速度快照；当前 `alpha=1/2`，响应量级约 100ms。
+- `board_grayscale_*` 封装 16 路数字复用器：S0-S3 依次选通通道 0-15，地址稳定 5us 后读取高有效 AS，完整扫描后发布 16 位通道位图。
+- `app_grayscale` 以 100ms 周期完成一次全通道扫描；后续任务通过 `app_grayscale_get_active_mask()` 或 `app_grayscale_is_active()` 读取缓存，不直接访问 GPIO。
 - PB21/BOOT 按键按上拉、按下为低电平处理，`ef_button` 以 10ms 轮询检测 DOWN、UP、CLICK、DOUBLE、LONG。
 - App 层通过 `app_button_register_handler()` 分发按键事件，后续业务模块不需要直接读 PB21 或操作 `ef_button_t`。
 - 示例 App 显示纯黑白 LCD 调试页：Flash JEDEC ID、IMU/光流/ToF 初始化状态、两路编码器速度、右上角 10Hz 心跳块、按键状态和错误行。
@@ -162,10 +164,11 @@ $HOME/.local/openocd-git/bin/openocd \
 - I2C0：PA1 SCL、PA0 SDA，用于 VL53L0X ToF 总线，默认 400kHz。
 - VL53L0X：I2C0，默认 7-bit 地址 `0x29`；XSHUT 和 GPIO1/INT 当前未分配，板级 API 走轮询/在线检测路径。
 - CANFD0：PA12 CAN_TX、PA13 CAN_RX。
-- PWM：PB12 TIMA0_C2、PB13 TIMA0_C3、PA29 TIMG6_C0、PB27 TIMG6_C1、PA14 TIMG12_C0、PB0 TIMA1_C0、PB1 TIMA1_C1。
+- PWM：PB12 TIMA0_C2、PB13 TIMA0_C3、PA29 TIMG6_C0、PA14 TIMG12_C0、PB0 TIMA1_C0、PB1 TIMA1_C1；PB27 舵机脚启动时保持高阻。
 - 编码器 1：PA28 TIMG7_CCP0 捕获 step，PA31 GPIO 读取 dir。
 - 编码器 2：PA26 TIMG8_CCP0 捕获 step，PA27 GPIO 读取 dir。
-- 资源冲突策略：`SPI/I2C/UART/CAN/Debug` 优先级最高，编码器次之，`GPIO/PWM/Button/蜂鸣器` 最低；当前 PA29/PB27 已分配给 PWM7/PWM8，GPIO.IO7/GPIO.IO6 禁用。
+- 灰度传感器：AS 为 PA25 GPIO 数字输入（高有效），S0/S1/S2/S3 分别为 PA24/PB24/PB25/PA22 GPIO 输出；S0 是地址最低位，S3 是最高位。
+- 资源冲突策略：`SPI/I2C/UART/CAN/Debug` 优先级最高，编码器次之，`GPIO/PWM/Button/蜂鸣器` 最低；当前 PA29 分配给 PWM7，PB27 为舵机预留且不在启动阶段初始化。
 - LCD 当前参数：160x128，`x_offset=1`，`y_offset=2`，`MADCTL=0xA0`。
 - BOOT 按键：PB21，内部上拉，按下为低电平；只有和 EN 组合才进入强制下载，常态可作为普通按键。
 
@@ -212,3 +215,7 @@ dir 由 GPIO 在捕获回调中读取。`board_encoder_read_delta()` 返回上�
 App 层通过 `app_encoder_tick_50ms()` 以 50ms 周期读取、滤波并刷新 LCD。由于机械安装相当于旋转 180 度，
 `board_encoder` 内部已经反向速度极性，业务层不要再次取反。惯导和里程计业务读取
 `app_encoder_get_snapshot()`，不要绕过 App 层直接重复读取并清零 `board_encoder_read_delta()`。
+
+## 灰度传感器 API 注意事项
+
+`app_grayscale_tick_100ms()` 由前台调度器每 100 ms 调用，逐路选择并读取 16 个高有效 AS 状态；扫描完成后才更新缓存。后续任务使用 `app_grayscale_get_active_mask()` 获取整帧位图，或使用 `app_grayscale_is_active(channel)` 查询单路，避免在业务代码里操作 PA25、PA24、PB24、PB25 或 PA22。AS 必须是 MCU 3.3 V 可接受的数字电平；若灰度模块为开漏输出，应提供适当上拉。

@@ -1,6 +1,5 @@
 #include "app_encoder.h"
 
-#include "app_status_page.h"
 #include "board_encoder.h"
 #include "ef_log.h"
 #include "ef_lowpass.h"
@@ -14,7 +13,7 @@
  *
  * @details
  * 本模块按 50 ms 周期读取 BoardDevices 层累计的 step/dir 编码器增量，通过整数一阶低通滤波
- * 得到稳定的 step/50ms 速度，并把结果刷新到 LCD 状态页。
+ * 得到稳定的 step/50ms 速度，并发布给速度 PID 和其他 App 模块。
  */
 
 /**
@@ -49,12 +48,8 @@ void app_encoder_init(void)
     g_encoder_snapshot.valid = false;
 
     if (board_encoder_init()) {
-        app_status_page_set_line(APP_STATUS_LINE_ENCODER1, "ENC1: +0");
-        app_status_page_set_line(APP_STATUS_LINE_ENCODER2, "ENC2: +0");
         EF_LOGI("encoder", "capture ok: enc1 step PA28 dir PA31, enc2 step PA26 dir PA27");
     } else {
-        app_status_page_set_line(APP_STATUS_LINE_ENCODER1, "ENC1: FAIL");
-        app_status_page_set_line(APP_STATUS_LINE_ENCODER2, "ENC2: FAIL");
         EF_LOGE("encoder", "init failed");
     }
 }
@@ -78,8 +73,6 @@ void app_encoder_tick_50ms(void)
 
     board_encoder_set_speed_50ms(BOARD_ENCODER_1, encoder1_speed);
     board_encoder_set_speed_50ms(BOARD_ENCODER_2, encoder2_speed);
-    app_status_page_set_line(APP_STATUS_LINE_ENCODER1, "ENC1: %+ld", (long) encoder1_speed);
-    app_status_page_set_line(APP_STATUS_LINE_ENCODER2, "ENC2: %+ld", (long) encoder2_speed);
 }
 
 bool app_encoder_get_snapshot(app_encoder_snapshot_t *snapshot)

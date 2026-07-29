@@ -22,6 +22,26 @@
 enum {
     /** 单行状态文本缓冲区长度。 */
     APP_STATUS_TEXT_LEN = 28,
+    /** 状态文本左边界。 */
+    APP_STATUS_TEXT_X = 4U,
+    /** 右侧灰度网格保留后，状态文本可用宽度。 */
+    APP_STATUS_TEXT_WIDTH = 88U,
+    /** 5x7 字符在 1 倍缩放下占用的宽度。 */
+    APP_STATUS_CHAR_WIDTH = 6U,
+    /** 灰度网格的列数。 */
+    APP_STATUS_GRAYSCALE_COLUMNS = 4U,
+    /** 灰度网格的通道数。 */
+    APP_STATUS_GRAYSCALE_CHANNEL_COUNT = 16U,
+    /** 灰度网格左上角 X 坐标。 */
+    APP_STATUS_GRAYSCALE_GRID_X = 96U,
+    /** 灰度网格左上角 Y 坐标。 */
+    APP_STATUS_GRAYSCALE_GRID_Y = 28U,
+    /** 单个灰度通道方格边长。 */
+    APP_STATUS_GRAYSCALE_CELL_SIZE = 12U,
+    /** 相邻灰度通道方格间距。 */
+    APP_STATUS_GRAYSCALE_CELL_GAP = 2U,
+    /** 空心方格的边框宽度。 */
+    APP_STATUS_GRAYSCALE_BORDER_WIDTH = 1U,
 };
 
 /**
@@ -50,10 +70,19 @@ static bool g_lcd_ready;
 static bool g_heartbeat_on;
 /** 各状态行文本缓存。 */
 static char g_lines[APP_STATUS_LINE_COUNT][APP_STATUS_TEXT_LEN];
+/** 最近一次灰度扫描高有效通道位图。 */
+static uint16_t g_grayscale_active_mask;
+/** 灰度位图是否已经完成首帧扫描。 */
+static bool g_grayscale_sample_valid;
+/** 灰度方格是否已经绘制到 LCD 帧缓冲。 */
+static bool g_grayscale_grid_drawn;
 
 static void app_status_page_draw_line(app_status_line_t line);
 static void app_status_page_draw_all(void);
+static void app_status_page_draw_grayscale_cell(uint8_t channel, bool active);
+static void app_status_page_draw_grayscale_grid(void);
 static void app_status_page_draw_header(void);
+static void app_status_page_draw_string_clipped(uint16_t x, uint16_t y, const char *text, uint16_t width);
 static void app_status_page_set_error_text(const char *msg);
 
 /**
@@ -63,13 +92,16 @@ void app_status_page_reset(void)
 {
     g_lcd_ready = false;
     g_heartbeat_on = false;
+    g_grayscale_active_mask = 0U;
+    g_grayscale_sample_valid = false;
+    g_grayscale_grid_drawn = false;
 
-    snprintf(g_lines[APP_STATUS_LINE_INIT], APP_STATUS_TEXT_LEN, "INIT: pending");
+    snprintf(g_lines[APP_STATUS_LINE_INIT], APP_STATUS_TEXT_LEN, "PID: OFF");
     snprintf(g_lines[APP_STATUS_LINE_IMU], APP_STATUS_TEXT_LEN, "IMU: pending");
     snprintf(g_lines[APP_STATUS_LINE_FLOW], APP_STATUS_TEXT_LEN, "FLOW: pending");
     snprintf(g_lines[APP_STATUS_LINE_TOF], APP_STATUS_TEXT_LEN, "TOF: pending");
-    snprintf(g_lines[APP_STATUS_LINE_ENCODER1], APP_STATUS_TEXT_LEN, "ENC1: +0");
-    snprintf(g_lines[APP_STATUS_LINE_ENCODER2], APP_STATUS_TEXT_LEN, "ENC2: +0");
+    snprintf(g_lines[APP_STATUS_LINE_ENCODER1], APP_STATUS_TEXT_LEN, "M1 T100 E+0");
+    snprintf(g_lines[APP_STATUS_LINE_ENCODER2], APP_STATUS_TEXT_LEN, "M2 T100 E+0");
     snprintf(g_lines[APP_STATUS_LINE_BUTTON], APP_STATUS_TEXT_LEN, "BOOT: IDLE");
     snprintf(g_lines[APP_STATUS_LINE_ERROR], APP_STATUS_TEXT_LEN, "ERR: none");
 }
@@ -87,6 +119,7 @@ bool app_status_page_init_lcd(void)
         board_lcd_fill(BOARD_LCD_COLOR_BLACK);
         app_status_page_draw_header();
         app_status_page_draw_all();
+        app_status_page_draw_grayscale_grid();
     }
 
     return g_lcd_ready;
@@ -122,6 +155,39 @@ void app_status_page_set_line(app_status_line_t line, const char *fmt, ...)
     va_end(args);
 
     app_status_page_draw_line(line);
+}
+
+/**
+ * @brief 更新灰度方格，仅重绘状态发生变化的通道。
+ * @param active_mask 高有效通道位图。
+ * @param sample_valid 是否已有完整扫描结果。
+ */
+void app_status_page_set_grayscale_mask(uint16_t active_mask, bool sample_valid)
+{
+    const uint16_t previous_mask = g_grayscale_active_mask;
+    const bool previous_valid = g_grayscale_sample_valid;
+
+    g_grayscale_active_mask = active_mask;
+    g_grayscale_sample_valid = sample_valid;
+
+    if (!g_lcd_ready) {
+        return;
+    }
+
+    if (!g_grayscale_grid_drawn) {
+        app_status_page_draw_grayscale_grid();
+        return;
+    }
+
+    for (uint8_t channel = 0U; channel < APP_STATUS_GRAYSCALE_CHANNEL_COUNT; channel++) {
+        const uint16_t channel_bit = (uint16_t) 1U << channel;
+        const bool was_active = previous_valid && ((previous_mask & channel_bit) != 0U);
+        const bool is_active = sample_valid && ((active_mask & channel_bit) != 0U);
+
+        if (was_active != is_active) {
+            app_status_page_draw_grayscale_cell(channel, is_active);
+        }
+    }
 }
 
 /**
@@ -177,9 +243,10 @@ static void app_status_page_draw_line(app_status_line_t line)
         return;
     }
 
-    board_lcd_fill_rect(4U, g_line_views[line].y, 150U, 8U, BOARD_LCD_COLOR_BLACK);
-    board_lcd_draw_string(4U, g_line_views[line].y, g_lines[line],
-        BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
+    board_lcd_fill_rect(APP_STATUS_TEXT_X, g_line_views[line].y,
+        APP_STATUS_TEXT_WIDTH, 8U, BOARD_LCD_COLOR_BLACK);
+    app_status_page_draw_string_clipped(APP_STATUS_TEXT_X, g_line_views[line].y,
+        g_lines[line], APP_STATUS_TEXT_WIDTH);
 }
 
 /**
@@ -193,13 +260,79 @@ static void app_status_page_draw_all(void)
 }
 
 /**
+ * @brief 绘制一个灰度通道方格。
+ * @param channel 通道号，范围为 0 至 15。
+ * @param active 为 true 时显示实心白色。
+ */
+static void app_status_page_draw_grayscale_cell(uint8_t channel, bool active)
+{
+    static const char g_channel_labels[] = "0123456789ABCDEF";
+    const uint16_t column = (uint16_t) (channel % APP_STATUS_GRAYSCALE_COLUMNS);
+    const uint16_t row = (uint16_t) (channel / APP_STATUS_GRAYSCALE_COLUMNS);
+    const uint16_t step = APP_STATUS_GRAYSCALE_CELL_SIZE + APP_STATUS_GRAYSCALE_CELL_GAP;
+    const uint16_t x = APP_STATUS_GRAYSCALE_GRID_X + (column * step);
+    const uint16_t y = APP_STATUS_GRAYSCALE_GRID_Y + (row * step);
+    const uint16_t inner_size = APP_STATUS_GRAYSCALE_CELL_SIZE -
+        (2U * APP_STATUS_GRAYSCALE_BORDER_WIDTH);
+
+    board_lcd_fill_rect(x, y, APP_STATUS_GRAYSCALE_CELL_SIZE,
+        APP_STATUS_GRAYSCALE_CELL_SIZE, BOARD_LCD_COLOR_WHITE);
+    if (!active) {
+        board_lcd_fill_rect(x + APP_STATUS_GRAYSCALE_BORDER_WIDTH,
+            y + APP_STATUS_GRAYSCALE_BORDER_WIDTH, inner_size, inner_size,
+            BOARD_LCD_COLOR_BLACK);
+    }
+
+    board_lcd_draw_char(x + 3U, y + 2U, g_channel_labels[channel],
+        active ? BOARD_LCD_COLOR_BLACK : BOARD_LCD_COLOR_WHITE,
+        active ? BOARD_LCD_COLOR_WHITE : BOARD_LCD_COLOR_BLACK, 1U);
+}
+
+/**
+ * @brief 绘制当前灰度扫描位图的完整 4x4 方格。
+ */
+static void app_status_page_draw_grayscale_grid(void)
+{
+    for (uint8_t channel = 0U; channel < APP_STATUS_GRAYSCALE_CHANNEL_COUNT; channel++) {
+        const bool active = g_grayscale_sample_valid &&
+            ((g_grayscale_active_mask & ((uint16_t) 1U << channel)) != 0U);
+
+        app_status_page_draw_grayscale_cell(channel, active);
+    }
+
+    g_grayscale_grid_drawn = true;
+}
+
+/**
  * @brief 绘制状态页标题栏和心跳块初始状态。
  */
 static void app_status_page_draw_header(void)
 {
     board_lcd_fill_rect(0U, 0U, BOARD_LCD_WIDTH, 20U, BOARD_LCD_COLOR_WHITE);
-    board_lcd_draw_string(4U, 6U, "BOARD STATUS", BOARD_LCD_COLOR_BLACK, BOARD_LCD_COLOR_WHITE, 1U);
+    board_lcd_draw_string(4U, 6U, "LINE TRACK", BOARD_LCD_COLOR_BLACK, BOARD_LCD_COLOR_WHITE, 1U);
     board_lcd_fill_rect(140U, 4U, 12U, 12U, BOARD_LCD_COLOR_WHITE);
+}
+
+/**
+ * @brief 在固定宽度内绘制 ASCII 文本，防止覆盖右侧灰度网格。
+ * @param x 文本左上角 X 坐标。
+ * @param y 文本左上角 Y 坐标。
+ * @param text 待绘制文本。
+ * @param width 可用宽度。
+ */
+static void app_status_page_draw_string_clipped(uint16_t x, uint16_t y, const char *text, uint16_t width)
+{
+    const uint16_t right = x + width;
+
+    if (text == NULL) {
+        return;
+    }
+
+    while ((*text != '\0') && ((uint32_t) x + APP_STATUS_CHAR_WIDTH <= right)) {
+        board_lcd_draw_char(x, y, *text, BOARD_LCD_COLOR_WHITE, BOARD_LCD_COLOR_BLACK, 1U);
+        x += APP_STATUS_CHAR_WIDTH;
+        text++;
+    }
 }
 
 /**

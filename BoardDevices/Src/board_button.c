@@ -15,6 +15,8 @@ bool board_button_is_pressed(board_button_id_t id)
     switch (id) {
     case BOARD_BUTTON_BOOT:
         return !ef_gpio_read(EF_GPIO_BUTTON_BOOT);
+    case BOARD_BUTTON_MOTOR_START:
+        return !ef_gpio_read(EF_GPIO_BUTTON_MOTOR_START);
     default:
         return false;
     }

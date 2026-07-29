@@ -91,9 +91,12 @@ add_library(ef_boarddevices
   BoardDevices/Src/board_console.c
   BoardDevices/Src/board_encoder.c
   BoardDevices/Src/board_flash.c
+  BoardDevices/Src/board_grayscale.c
   BoardDevices/Src/board_imu.c
   BoardDevices/Src/board_lcd.c
   BoardDevices/Src/board_led.c
+  BoardDevices/Src/board_motor.c
+  BoardDevices/Src/board_servo.c
   BoardDevices/Src/board_optical_flow.c
   BoardDevices/Src/board_tof.c
 )
@@ -130,9 +133,12 @@ add_library(ef_app
   App/Src/app_board_probe.c
   App/Src/app_button.c
   App/Src/app_encoder.c
+  App/Src/app_grayscale.c
+  App/Src/app_line_track.c
   App/Src/app_imu.c
   App/Src/app_inav.c
   App/Src/app_motor.c
+  App/Src/app_servo.c
   App/Src/app_status_page.c
 )
 

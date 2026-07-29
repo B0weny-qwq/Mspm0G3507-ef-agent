@@ -9,6 +9,8 @@
 | `ef_platform.c/h` | 平台初始化、毫秒/微秒计时、idle、延时、IRQ save/restore |
 | `ti_msp_dl_config.c/h` | MSPM0 DriverLib/SysConfig 风格的时钟、GPIO、外设实例和 pinmux 配置 |
 
+当前 GPIO pinmux 包含 16 路灰度复用器：AS 使用 PA25 数字输入（高有效），S0/S1/S2/S3 分别使用 PA24/PB24/PB25/PA22 数字输出，启动时默认选中通道 0。
+
 ## 规则
 
 - Platform 可以包含 vendor SDK 头，但不要把 vendor API 泄露给 App/Components。

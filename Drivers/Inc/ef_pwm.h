@@ -54,6 +54,14 @@ bool ef_pwm_set_duty_permille(ef_pwm_id_t id, uint16_t duty_permille);
 bool ef_pwm_set_compare_value(ef_pwm_id_t id, uint32_t compare_value);
 
 /**
+ * @brief Set the active-high pulse width in timer counts.
+ * @param id PWM channel.
+ * @param active_counts Number of timer ticks that the output stays high.
+ * @return true when the channel is valid.
+ */
+bool ef_pwm_set_active_counts(ef_pwm_id_t id, uint32_t active_counts);
+
+/**
  * @brief 启动 PWM 输出。
  *
  * @param id PWM 通道编号。

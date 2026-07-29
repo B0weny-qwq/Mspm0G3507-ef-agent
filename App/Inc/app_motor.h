@@ -79,6 +79,20 @@ void app_motor_init(void);
 void app_motor_tick_50ms(void);
 
 /**
+ * @brief 设置双轮 PID 的总输出开关。
+ *
+ * 关闭时立即把两路输出置零并复位 PID 积分，但保留各路的使能状态和目标速度；
+ * 再次打开后，下一次 50 ms 控制周期会按保留的目标恢复运行。系统上电默认关闭。
+ * 后续任务回调可直接调用本函数实现整车启动/停止。
+ */
+void app_motor_set_global_enabled(bool enabled);
+
+/**
+ * @brief 查询双轮 PID 的总输出开关状态。
+ */
+bool app_motor_is_global_enabled(void);
+
+/**
  * @brief 设置指定电机的速度环 PID 参数。
  */
 bool app_motor_set_pid_config(app_motor_id_t id, const app_motor_pid_config_t *config);
@@ -99,7 +113,10 @@ bool app_motor_set_enabled(app_motor_id_t id, bool enabled);
 bool app_motor_set_target_speed_50ms(app_motor_id_t id, int32_t speed_50ms);
 
 /**
- * @brief 停止全部电机并清零目标速度。
+ * @brief 急停全部电机并清零两路目标速度。
+ *
+ * 与总输出开关不同，本函数会同时取消两路单独使能；后续重新运行前需重新设置目标
+ * 并使能对应电机。
  */
 void app_motor_stop_all(void);
 

@@ -146,7 +146,6 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     /* PWM 输出引脚。 */
     DL_GPIO_initPeripheralOutputFunction(GPIO_PWM3_IOMUX, GPIO_PWM3_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_PWM4_IOMUX, GPIO_PWM4_IOMUX_FUNC);
-    DL_GPIO_initPeripheralOutputFunction(GPIO_PWM7_IOMUX, GPIO_PWM7_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_PWM8_IOMUX, GPIO_PWM8_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_BUZZER_PWM_IOMUX, GPIO_BUZZER_PWM_IOMUX_FUNC);
     DL_GPIO_initPeripheralOutputFunction(GPIO_MOTOR1_PWM_IOMUX, GPIO_MOTOR1_PWM_IOMUX_FUNC);
@@ -161,6 +160,11 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
         DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
         DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
     DL_GPIO_initDigitalInputFeatures(GPIO_ENCODERS_ENCODER2_DIR_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
+        DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
+
+    /* 灰度传感器：AS 为高有效数字输入，S0-S3 为通道选择输出。 */
+    DL_GPIO_initDigitalInputFeatures(GPIO_GRAYSCALE_AS_IOMUX,
         DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
         DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
 
@@ -180,9 +184,18 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     DL_GPIO_initDigitalOutput(GPIO_BOARD_DEVICES_LCD_BLK_IOMUX);
     DL_GPIO_initDigitalOutput(GPIO_SENSOR_DEVICES_IMU_CS_IOMUX);
     DL_GPIO_initDigitalOutput(GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_MOTOR1_DIR_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_MOTOR2_DIR_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_GRAYSCALE_S0_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_GRAYSCALE_S1_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_GRAYSCALE_S2_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_GRAYSCALE_S3_IOMUX);
 
     /* BOOT 键输入，上拉并开启迟滞。 */
     DL_GPIO_initDigitalInputFeatures(GPIO_BUTTONS_BOOT_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_PULL_UP,
+        DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
+    DL_GPIO_initDigitalInputFeatures(GPIO_BUTTONS_MOTOR_START_IOMUX,
         DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_PULL_UP,
         DL_GPIO_HYSTERESIS_ENABLE, DL_GPIO_WAKEUP_DISABLE);
 
@@ -191,6 +204,17 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
         GPIO_LEDS_USER_TEST_PIN |
         GPIO_BOARD_DEVICES_LCD_DC_PIN |
         GPIO_BOARD_DEVICES_LCD_BLK_PIN);
+
+    /* 电机默认不输出方向电平，后续由板级电机适配器安全接管。 */
+    DL_GPIO_clearPins(GPIO_MOTOR1_DIR_PORT,
+        GPIO_MOTOR1_DIR_PIN | GPIO_MOTOR2_DIR_PIN);
+
+    /* 灰度复用器默认选中通道 0。 */
+    DL_GPIO_clearPins(GPIO_GRAYSCALE_S0_PORT,
+        GPIO_GRAYSCALE_S0_PIN | GPIO_GRAYSCALE_S3_PIN);
+    DL_GPIO_clearPins(GPIO_GRAYSCALE_S1_PORT,
+        GPIO_GRAYSCALE_S1_PIN | GPIO_GRAYSCALE_S2_PIN);
+
 
     /* 默认释放片选与复位脚。 */
     DL_GPIO_setPins(GPIO_BOARD_DEVICES_PORT,
@@ -214,6 +238,14 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
     DL_GPIO_enableOutput(GPIO_SENSOR_DEVICES_PORT,
         GPIO_SENSOR_DEVICES_IMU_CS_PIN |
         GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN);
+
+    DL_GPIO_enableOutput(GPIO_MOTOR1_DIR_PORT,
+        GPIO_MOTOR1_DIR_PIN | GPIO_MOTOR2_DIR_PIN);
+
+    DL_GPIO_enableOutput(GPIO_GRAYSCALE_S0_PORT,
+        GPIO_GRAYSCALE_S0_PIN | GPIO_GRAYSCALE_S3_PIN);
+    DL_GPIO_enableOutput(GPIO_GRAYSCALE_S1_PORT,
+        GPIO_GRAYSCALE_S1_PIN | GPIO_GRAYSCALE_S2_PIN);
 
 }
 
@@ -369,6 +401,13 @@ static const DL_Timer_ClockConfig gPWMClockConfig = {
     .prescale = 0U,
 };
 
+/* TIMG6 is dedicated to the PB27 servo: 80 MHz / (79 + 1) = 1 MHz. */
+static const DL_Timer_ClockConfig gServoPWMClockConfig = {
+    .clockSel = DL_TIMER_CLOCK_BUSCLK,
+    .divideRatio = DL_TIMER_CLOCK_DIVIDE_1,
+    .prescale = 79U,
+};
+
 /* 复用的 PWM 定时器初始化模板。 */
 static void SYSCFG_DL_PWM_init_timer(GPTIMER_Regs *timer, uint32_t period, bool four_cc,
     uint32_t output_mask, DL_TIMER_CZC zero_ctl, DL_TIMER_CAC advance_ctl, DL_TIMER_CLC load_ctl)
@@ -380,7 +419,8 @@ static void SYSCFG_DL_PWM_init_timer(GPTIMER_Regs *timer, uint32_t period, bool 
         .startTimer = DL_TIMER_STOP,
     };
 
-    DL_Timer_setClockConfig(timer, &gPWMClockConfig);
+    DL_Timer_setClockConfig(timer,
+        timer == PWM_TIMG6_INST ? &gServoPWMClockConfig : &gPWMClockConfig);
     DL_Timer_initPWMMode(timer, &config);
     DL_Timer_setCounterControl(timer, zero_ctl, advance_ctl, load_ctl);
 
@@ -410,8 +450,8 @@ SYSCONFIG_WEAK void SYSCFG_DL_PWM_init(void)
         DL_TIMER_CC0_OUTPUT | DL_TIMER_CC1_OUTPUT,
         DL_TIMER_CZC_CCCTL0_ZCOND, DL_TIMER_CAC_CCCTL0_ACOND, DL_TIMER_CLC_CCCTL0_LCOND);
     SYSCFG_DL_PWM_init_timer(PWM_TIMG6_INST, PWM_TIMG6_PERIOD, false,
-        DL_TIMER_CC0_OUTPUT | DL_TIMER_CC1_OUTPUT,
-        DL_TIMER_CZC_CCCTL0_ZCOND, DL_TIMER_CAC_CCCTL0_ACOND, DL_TIMER_CLC_CCCTL0_LCOND);
+        DL_TIMER_CC1_OUTPUT,
+        DL_TIMER_CZC_CCCTL1_ZCOND, DL_TIMER_CAC_CCCTL1_ACOND, DL_TIMER_CLC_CCCTL1_LCOND);
     SYSCFG_DL_PWM_init_timer(PWM_TIMG12_INST, PWM_TIMG12_PERIOD, false,
         DL_TIMER_CC0_OUTPUT,
         DL_TIMER_CZC_CCCTL0_ZCOND, DL_TIMER_CAC_CCCTL0_ACOND, DL_TIMER_CLC_CCCTL0_LCOND);

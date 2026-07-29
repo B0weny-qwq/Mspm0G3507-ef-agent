@@ -10,6 +10,7 @@
 | `board_console` | UART 日志控制台 | `ef_uart` |
 | `board_encoder` | 两路 step/dir 编码器 | `ef_capture`、`ef_gpio`、`ef_platform` |
 | `board_flash` | W25Q128 Flash | `w25q128`、`ef_spi`、`ef_gpio` |
+| `board_grayscale` | 16 路数字灰度复用器，S0-S3 选通、AS 高有效采样 | `ef_gpio`、`ef_platform` |
 | `board_imu` | LSM6DSR IMU，208Hz、±4g、±1000dps，SPI0 DMA burst 采样 | `lsm6dsr`、`ef_spi`、`ef_gpio` |
 | `board_lcd` | TFT180/ST7789 状态屏 | `st7789`、`ef_spi`、`ef_gpio` |
 | `board_led` | 板载 LED | `ef_gpio` |

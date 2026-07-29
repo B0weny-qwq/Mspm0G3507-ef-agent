@@ -4,6 +4,7 @@
 #include "ef_log.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,6 +36,11 @@ typedef enum {
     APP_STATUS_LINE_COUNT,
 } app_status_line_t;
 
+/* Dedicated motor UI slots. The grayscale grid remains on the right side. */
+#define APP_STATUS_LINE_MOTOR_GATE APP_STATUS_LINE_INIT
+#define APP_STATUS_LINE_MOTOR1     APP_STATUS_LINE_ENCODER1
+#define APP_STATUS_LINE_MOTOR2     APP_STATUS_LINE_ENCODER2
+
 /**
  * @brief 重置状态页缓存文本和运行状态。
  */
@@ -63,6 +69,17 @@ bool app_status_page_is_ready(void);
  * @param fmt `printf` 风格格式串。
  */
 void app_status_page_set_line(app_status_line_t line, const char *fmt, ...);
+
+/**
+ * @brief 更新 16 路灰度传感器的 LCD 方格状态。
+ *
+ * 方格按从左到右、从上到下的顺序对应通道 0 至 15。有效通道显示为实心白色，
+ * 其余通道显示为白色边框；尚未获得首帧采样时全部显示为边框。
+ *
+ * @param active_mask 高有效通道位图，第 N 位对应通道 N。
+ * @param sample_valid 是否已经完成至少一次完整扫描。
+ */
+void app_status_page_set_grayscale_mask(uint16_t active_mask, bool sample_valid);
 
 /**
  * @brief 周期刷新状态页心跳和脏矩形。

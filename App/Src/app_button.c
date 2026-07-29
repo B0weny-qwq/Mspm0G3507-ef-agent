@@ -28,6 +28,7 @@ typedef struct {
 
 /** BOOT 按钮状态机实例。 */
 static ef_button_t g_boot_button;
+static ef_button_t g_motor_start_button;
 /** 按钮模块内部毫秒计数。 */
 static uint32_t g_button_time_ms;
 /** 每个按钮最近一次识别到的事件。 */
@@ -49,6 +50,8 @@ static bool app_button_raw_pressed(app_button_id_t id)
     switch (id) {
     case APP_BUTTON_BOOT:
         return board_button_is_pressed(BOARD_BUTTON_BOOT);
+    case APP_BUTTON_MOTOR_START:
+        return board_button_is_pressed(BOARD_BUTTON_MOTOR_START);
     default:
         return false;
     }
@@ -84,6 +87,8 @@ void app_button_init(void)
     }
 
     ef_button_init(&g_boot_button, NULL, app_button_raw_pressed(APP_BUTTON_BOOT), g_button_time_ms);
+    ef_button_init(&g_motor_start_button, NULL,
+        app_button_raw_pressed(APP_BUTTON_MOTOR_START), g_button_time_ms);
 }
 
 /**
@@ -98,6 +103,12 @@ void app_button_tick_10ms(void)
 
     if (event != EF_BUTTON_EVENT_NONE) {
         app_button_dispatch(APP_BUTTON_BOOT, event);
+    }
+
+    event = ef_button_update(&g_motor_start_button,
+        app_button_raw_pressed(APP_BUTTON_MOTOR_START), g_button_time_ms);
+    if (event != EF_BUTTON_EVENT_NONE) {
+        app_button_dispatch(APP_BUTTON_MOTOR_START, event);
     }
 }
 
@@ -159,6 +170,8 @@ const char *app_button_name(app_button_id_t id)
     switch (id) {
     case APP_BUTTON_BOOT:
         return "BOOT";
+    case APP_BUTTON_MOTOR_START:
+        return "PB4";
     default:
         return "UNKNOWN";
     }

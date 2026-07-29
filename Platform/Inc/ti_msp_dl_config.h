@@ -184,8 +184,16 @@ extern "C" {
 #define GPIO_MOTOR2_PWM_IOMUX                                  (IOMUX_PINCM13)
 #define GPIO_MOTOR2_PWM_IOMUX_FUNC                   IOMUX_PINCM13_PF_TIMA1_CCP1
 
+/* 电机方向 GPIO。 */
+#define GPIO_MOTOR1_DIR_PORT                                             GPIOA
+#define GPIO_MOTOR1_DIR_PIN                                       DL_GPIO_PIN_7
+#define GPIO_MOTOR1_DIR_IOMUX                                  (IOMUX_PINCM14)
+#define GPIO_MOTOR2_DIR_PORT                                             GPIOA
+#define GPIO_MOTOR2_DIR_PIN                                      DL_GPIO_PIN_30
+#define GPIO_MOTOR2_DIR_IOMUX                                   (IOMUX_PINCM5)
+
 #define PWM_TIMG6_INST                                                    TIMG6
-#define PWM_TIMG6_PERIOD                                                 4000U
+#define PWM_TIMG6_PERIOD                                                20000U
 #define GPIO_PWM7_PORT                                                   GPIOA
 #define GPIO_PWM7_PIN                                           DL_GPIO_PIN_29
 #define GPIO_PWM7_IOMUX                                         (IOMUX_PINCM4)
@@ -258,6 +266,27 @@ extern "C" {
 #define GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_PIN                   DL_GPIO_PIN_16
 #define GPIO_SENSOR_DEVICES_OPTICAL_FLOW_CS_IOMUX                (IOMUX_PINCM38)
 
+/* 16 路灰度传感器数字复用器 GPIO。 */
+#define GPIO_GRAYSCALE_AS_PORT                                           (GPIOA)
+#define GPIO_GRAYSCALE_AS_PIN                                      DL_GPIO_PIN_25
+#define GPIO_GRAYSCALE_AS_IOMUX                                (IOMUX_PINCM55)
+
+#define GPIO_GRAYSCALE_S0_PORT                                           (GPIOA)
+#define GPIO_GRAYSCALE_S0_PIN                                      DL_GPIO_PIN_24
+#define GPIO_GRAYSCALE_S0_IOMUX                                (IOMUX_PINCM54)
+
+#define GPIO_GRAYSCALE_S1_PORT                                           (GPIOB)
+#define GPIO_GRAYSCALE_S1_PIN                                      DL_GPIO_PIN_24
+#define GPIO_GRAYSCALE_S1_IOMUX                                (IOMUX_PINCM52)
+
+#define GPIO_GRAYSCALE_S2_PORT                                           (GPIOB)
+#define GPIO_GRAYSCALE_S2_PIN                                      DL_GPIO_PIN_25
+#define GPIO_GRAYSCALE_S2_IOMUX                                (IOMUX_PINCM56)
+
+#define GPIO_GRAYSCALE_S3_PORT                                           (GPIOA)
+#define GPIO_GRAYSCALE_S3_PIN                                      DL_GPIO_PIN_22
+#define GPIO_GRAYSCALE_S3_IOMUX                                (IOMUX_PINCM47)
+
 /* 编码器输入：step 使用定时器输入捕获，dir 使用普通 GPIO 读取方向。 */
 #define GPIO_ENCODERS_PORT                                                (GPIOA)
 
@@ -290,6 +319,10 @@ extern "C" {
 #define GPIO_BUTTONS_BOOT_PIN                                   (DL_GPIO_PIN_21)
 #define GPIO_BUTTONS_BOOT_IOMUX                                  (IOMUX_PINCM49)
 #define GPIO_BUTTONS_BOOT_IOMUX_FUNC               IOMUX_PINCM49_PF_GPIOB_DIO21
+
+#define GPIO_BUTTONS_MOTOR_START_PIN                              (DL_GPIO_PIN_4)
+#define GPIO_BUTTONS_MOTOR_START_IOMUX                            (IOMUX_PINCM17)
+#define GPIO_BUTTONS_MOTOR_START_IOMUX_FUNC        IOMUX_PINCM17_PF_GPIOB_DIO04
 
 
 

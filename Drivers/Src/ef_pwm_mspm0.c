@@ -42,6 +42,8 @@ void ef_pwm_init(void)
 bool ef_pwm_set_duty_permille(ef_pwm_id_t id, uint16_t duty_permille)
 {
     const ef_pwm_channel_t *const channel = ef_pwm_channel(id);
+    uint32_t load_value;
+    uint32_t active_counts;
     uint32_t compare_value;
 
     if (channel == NULL) {
@@ -52,10 +54,16 @@ bool ef_pwm_set_duty_permille(ef_pwm_id_t id, uint16_t duty_permille)
         duty_permille = 1000U;
     }
 
-    compare_value = ((channel->period + 1U) * (uint32_t) duty_permille) / 1000U;
-    if (compare_value > channel->period) {
-        compare_value = channel->period;
-    }
+    /*
+     * Edge-aligned PWM uses a down counter: a load event drives the output
+     * high and the compare event drives it low. Therefore a smaller compare
+     * value means a larger active-high duty cycle. Keeping duty 0 at the
+     * largest valid compare value is essential because the motor stop path
+     * relies on it.
+     */
+    load_value = channel->period - 1U;
+    active_counts = (load_value * (uint32_t) duty_permille) / 1000U;
+    compare_value = load_value - active_counts;
 
     return ef_pwm_set_compare_value(id, compare_value);
 }
@@ -69,12 +77,29 @@ bool ef_pwm_set_compare_value(ef_pwm_id_t id, uint32_t compare_value)
         return false;
     }
 
-    if (compare_value > channel->period) {
-        compare_value = channel->period;
+    if (compare_value >= channel->period) {
+        compare_value = channel->period - 1U;
     }
 
     DL_Timer_setCaptureCompareValue(channel->timer, compare_value, channel->channel);
     return true;
+}
+
+bool ef_pwm_set_active_counts(ef_pwm_id_t id, uint32_t active_counts)
+{
+    const ef_pwm_channel_t *const channel = ef_pwm_channel(id);
+    uint32_t load_value;
+
+    if (channel == NULL) {
+        return false;
+    }
+
+    load_value = channel->period - 1U;
+    if (active_counts > load_value) {
+        active_counts = load_value;
+    }
+
+    return ef_pwm_set_compare_value(id, load_value - active_counts);
 }
 
 /* 启动指定 PWM 通道对应的定时器。 */

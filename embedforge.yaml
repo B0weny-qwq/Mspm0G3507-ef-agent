@@ -211,15 +211,13 @@ resources:
         timer: TIMG6
         channel: 0
         function: TIMG6_C0
-        pin:
-          port: GPIOA
-          pin: 29
-          iomux: IOMUX_PINCM4
-          function: IOMUX_PINCM4_PF_TIMG6_CCP0
+        status: unassigned
       pwm8:
         timer: TIMG6
         channel: 1
         function: TIMG6_C1
+        clock_hz: 1000000
+        period_ticks: 20000
         pin:
           port: GPIOB
           pin: 27
@@ -287,14 +285,51 @@ resources:
             pin: 31
             iomux: IOMUX_PINCM6
             function: IOMUX_PINCM6_PF_TIMG7_CCP1
-    adc:
-      grayscale:
-        instance: ADC0
+    gpio:
+      grayscale_mux:
+        type: digital_mux
+        channel_count: 16
+        selector_settle_us: 5
         pins:
-          analog_select:
+          as:
             port: GPIOA
             pin: 25
             iomux: IOMUX_PINCM55
+            function: IOMUX_PINCM55_PF_GPIOA_DIO25
+            direction: input
+            active: high
+          s0:
+            port: GPIOA
+            pin: 24
+            iomux: IOMUX_PINCM54
+            function: IOMUX_PINCM54_PF_GPIOA_DIO24
+            direction: output
+            address_bit: 0
+            default: low
+          s1:
+            port: GPIOB
+            pin: 24
+            iomux: IOMUX_PINCM52
+            function: IOMUX_PINCM52_PF_GPIOB_DIO24
+            direction: output
+            address_bit: 1
+            default: low
+          s2:
+            port: GPIOB
+            pin: 25
+            iomux: IOMUX_PINCM56
+            function: IOMUX_PINCM56_PF_GPIOB_DIO25
+            direction: output
+            address_bit: 2
+            default: low
+          s3:
+            port: GPIOA
+            pin: 22
+            iomux: IOMUX_PINCM47
+            function: IOMUX_PINCM47_PF_GPIOA_DIO22
+            direction: output
+            address_bit: 3
+            default: low
     can:
       vehicle:
         instance: CANFD0
@@ -453,28 +488,21 @@ resources:
         note: TIMG7 does not provide hardware QEI; use capture/interrupt/software decode.
     grayscale:
       main:
-        analog: peripherals.adc.grayscale
-        pins:
-          s0:
-            port: GPIOA
-            pin: 24
-            iomux: IOMUX_PINCM54
-            function: IOMUX_PINCM54_PF_GPIOA_DIO24
-          s1:
-            port: GPIOB
-            pin: 24
-            iomux: IOMUX_PINCM52
-            function: IOMUX_PINCM52_PF_GPIOB_DIO24
-          s2:
-            port: GPIOB
-            pin: 25
-            iomux: IOMUX_PINCM56
-            function: IOMUX_PINCM56_PF_GPIOB_DIO25
-          s3:
-            port: GPIOA
-            pin: 22
-            iomux: IOMUX_PINCM47
-            function: IOMUX_PINCM47_PF_GPIOA_DIO22
+        gpio: peripherals.gpio.grayscale_mux
+        type: digital_mux
+        channel_count: 16
+        active_level: high
+        address_order: [s0, s1, s2, s3]
+        scan_mode: sequential_full_scan
+    servo:
+      steering:
+        pwm: peripherals.pwm.pwm8
+        signal_pin: resources.board_devices.expansion_gpio.io6
+        frame_period_ms: 20
+        center_pulse_us: 1500
+        minimum_pulse_us: 1000
+        maximum_pulse_us: 2000
+        note: PB27 uses TIMG6_CCP1 hardware PWM; TIMG6 is dedicated to the servo.
     expansion_gpio:
       io2:
         status: unassigned
@@ -487,12 +515,17 @@ resources:
         pin: 23
         iomux: IOMUX_PINCM51
         function: IOMUX_PINCM51_PF_GPIOB_DIO23
+        status: unassigned
       io6:
-        status: disabled
-        reason: PB27 is assigned to PWM8/TIMG6_C1.
+        port: GPIOB
+        pin: 27
+        iomux: IOMUX_PINCM58
+        function: IOMUX_PINCM58_PF_TIMG6_CCP1
+        status: assigned
+        role: standard_servo_signal
       io7:
         status: disabled
-        reason: PA29 is assigned to PWM7/TIMG6_C0.
+        reason: TIMG6 is dedicated to PB27 servo PWM; PA29/CCP0 is disabled.
     spi_select:
       port: GPIOA
       pin: 15
@@ -544,11 +577,10 @@ resources:
     pin_conflict_priority:
       priority: highest=spi,i2c,uart,can,debug; middle=encoder; lowest=gpio,pwm,button,buzzer
       note: When a physical pin conflicts, keep the highest-priority resource and disable or reassign the lower-priority resource.
-    io6_io7_disabled_for_pwm7_pwm8:
+    io7_disabled_for_servo_timer:
       pins:
         - PA29
-        - PB27
-      note: GPIO.IO7/GPIO.IO6 are disabled because PA29/PB27 are assigned to PWM7/PWM8.
+      note: PA29/PWM7 is disabled because TIMG6 is dedicated to PB27 servo PWM.
     qei_limit:
       note: TIMG8 can be used for hardware QEI on PA26/PA27. PA28/PA31 use TIMG7 and require capture/interrupt/software decode.
     core_board_builtin_debug_bsl:
@@ -566,6 +598,17 @@ runtime:
   buttons:
     poll_period_ms: 10
     dispatcher: app_button
+  grayscale:
+    scan_period_ms: 10
+    dispatcher: app_grayscale
+    channels_per_scan: 16
+  line_track:
+    period_ms: 10
+    weights: [-15, -13, -11, -9, -7, -5, -3, -1, 1, 3, 5, 7, 9, 11, 13, 15]
+    error_direction: -1
+    intersection_threshold: 10
+    center_dead_zone_q15: 1638
+    hold_last_error_on_loss: true
   display:
     debug_page:
       refresh_hz: 30

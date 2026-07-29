@@ -1,15 +1,24 @@
 #include "app.h"
 
+#include "app_features.h"
+#if APP_ENABLE_IMU_PIPELINE
 #include "app_angle_pid.h"
+#endif
 #include "app_board_probe.h"
 #include "app_button.h"
 #include "app_encoder.h"
+#include "app_grayscale.h"
+#include "app_line_track.h"
+#if APP_ENABLE_IMU_PIPELINE
 #include "app_imu.h"
 #include "app_inav.h"
+#endif
 #include "app_motor.h"
+#include "app_servo.h"
 #include "app_status_page.h"
 #include "board_lcd.h"
 #include "board_led.h"
+#include "board_motor.h"
 #include "ef_event.h"
 #include "ef_log.h"
 #include "ef_scheduler.h"
@@ -40,16 +49,24 @@ enum {
     APP_BUTTON_TASK_MS = 10U,
     /** LCD 状态页服务周期，单位 ms。 */
     APP_LCD_TASK_MS = 100U,
+    /** 16 路灰度传感器全通道扫描周期，单位 ms。 */
+    APP_GRAYSCALE_TASK_MS = 10U,
+    APP_SERVO_TASK_MS = 20U,
+    APP_LINE_TRACK_DEBUG_TASK_MS = 200U,
+    /** 编码器速度采样周期，单位 ms。 */
+    APP_ENCODER_TASK_MS = 50U,
+#if APP_ENABLE_IMU_PIPELINE
     /** IMU 采样周期，单位 ms。 */
     APP_IMU_TASK_MS = 5U,
     /** 角度外环周期，单位 ms。 */
     APP_ANGLE_PID_TASK_MS = 10U,
-    /** 编码器速度采样周期，单位 ms。 */
-    APP_ENCODER_TASK_MS = 50U,
     /** IMU + 编码器惯导周期，单位 ms。 */
     APP_INAV_TASK_MS = 50U,
+#endif
+#if APP_ENABLE_MOTOR_SPEED_PID
     /** 电机速度环周期，单位 ms。 */
     APP_MOTOR_TASK_MS = 50U,
+#endif
     /** LED 心跳事件发布周期，单位 ms。 */
     APP_LED_TASK_MS = 500U,
 };
@@ -57,15 +74,23 @@ enum {
 /** 日志标签。 */
 static const char *TAG = "app";
 
-static void app_angle_pid_task(void *ctx);
 static void app_button_task(void *ctx);
 static void app_button_status_handler(app_button_id_t id, ef_button_event_t event, void *ctx);
 static void app_encoder_task(void *ctx);
+static void app_grayscale_task(void *ctx);
+static void app_line_track_debug_task(void *ctx);
+#if APP_ENABLE_IMU_PIPELINE
+static void app_angle_pid_task(void *ctx);
 static void app_imu_task(void *ctx);
 static void app_inav_task(void *ctx);
+#endif
 static void app_led_task(void *ctx);
 static void app_lcd_task(void *ctx);
+static void app_servo_task(void *ctx);
+#if APP_ENABLE_MOTOR_SPEED_PID
 static void app_motor_task(void *ctx);
+#endif
+static void app_motor_output_handler(app_motor_id_t id, const app_motor_output_t *output, void *ctx);
 static void app_led_event_handler(ef_event_id_t id, const void *payload, void *ctx);
 
 /** 应用协作式调度任务表。 */
@@ -77,11 +102,30 @@ static const ef_task_config_t g_app_tasks[] = {
         .run_on_start = true,
     },
     {
+        .run = app_grayscale_task,
+        .ctx = 0,
+        .period_ms = APP_GRAYSCALE_TASK_MS,
+        .run_on_start = true,
+    },
+    {
+        .run = app_servo_task,
+        .ctx = 0,
+        .period_ms = APP_SERVO_TASK_MS,
+        .run_on_start = true,
+    },
+    {
+        .run = app_line_track_debug_task,
+        .ctx = 0,
+        .period_ms = APP_LINE_TRACK_DEBUG_TASK_MS,
+        .run_on_start = false,
+    },
+    {
         .run = app_lcd_task,
         .ctx = 0,
         .period_ms = APP_LCD_TASK_MS,
         .run_on_start = true,
     },
+#if APP_ENABLE_IMU_PIPELINE
     {
         .run = app_imu_task,
         .ctx = 0,
@@ -94,24 +138,29 @@ static const ef_task_config_t g_app_tasks[] = {
         .period_ms = APP_ANGLE_PID_TASK_MS,
         .run_on_start = true,
     },
+#endif
     {
         .run = app_encoder_task,
         .ctx = 0,
         .period_ms = APP_ENCODER_TASK_MS,
         .run_on_start = true,
     },
+#if APP_ENABLE_IMU_PIPELINE
     {
         .run = app_inav_task,
         .ctx = 0,
         .period_ms = APP_INAV_TASK_MS,
         .run_on_start = true,
     },
+#endif
+#if APP_ENABLE_MOTOR_SPEED_PID
     {
         .run = app_motor_task,
         .ctx = 0,
         .period_ms = APP_MOTOR_TASK_MS,
         .run_on_start = true,
     },
+#endif
     {
         .run = app_led_task,
         .ctx = 0,
@@ -150,7 +199,7 @@ void app_start(ef_idle_fn_t idle)
     if (!app_button_register_handler(app_button_status_handler, NULL)) {
         EF_LOGE("button", "handler full");
     }
-    EF_LOGI("init", "button boot PB21 ok");
+    EF_LOGI("init", "buttons: boot PB21, motor start PB4");
 
     if (app_status_page_init_lcd()) {
         EF_LOGI("lcd", "init ok, %ux%u", BOARD_LCD_WIDTH, BOARD_LCD_HEIGHT);
@@ -161,10 +210,29 @@ void app_start(ef_idle_fn_t idle)
 
     app_board_probe_run();
     app_encoder_init();
+    app_grayscale_init();
+    app_line_track_init();
+    (void) app_servo_init();
     app_motor_init();
+    if (board_motor_init()) {
+        const bool motor1_bound = app_motor_set_output(APP_MOTOR_1,
+            app_motor_output_handler, NULL);
+        const bool motor2_bound = app_motor_set_output(APP_MOTOR_2,
+            app_motor_output_handler, NULL);
+
+        if (motor1_bound && motor2_bound) {
+            EF_LOGI("init", "motor pid ready: target 100, gate off");
+        } else {
+            EF_LOGE("motor", "output binding failed");
+        }
+    } else {
+        EF_LOGE("motor", "board output init failed");
+    }
+#if APP_ENABLE_IMU_PIPELINE
     app_imu_init();
     app_angle_pid_init();
     app_inav_init();
+#endif
 
     ef_event_init(g_app_events, sizeof(g_app_events) / sizeof(g_app_events[0]));
     EF_LOGI("init", "event ok");
@@ -214,10 +282,39 @@ static void app_encoder_task(void *ctx)
 }
 
 /**
+ * @brief 周期扫描 16 路灰度传感器并更新 App 缓存。
+ *
+ * @param ctx 任务上下文，当前未使用。
+ */
+static void app_grayscale_task(void *ctx)
+{
+    uint16_t active_mask;
+
+    (void) ctx;
+    app_grayscale_tick_10ms();
+    if (app_grayscale_get_active_mask(&active_mask)) {
+        app_line_track_update(active_mask);
+    }
+}
+
+static void app_servo_task(void *ctx)
+{
+    (void) ctx;
+    app_servo_tick_20ms();
+}
+
+static void app_line_track_debug_task(void *ctx)
+{
+    (void) ctx;
+    app_line_track_debug_200ms();
+}
+
+/**
  * @brief 周期更新角度外环 PID。
  *
  * @param ctx 任务上下文，当前未使用。
  */
+#if APP_ENABLE_IMU_PIPELINE
 static void app_angle_pid_task(void *ctx)
 {
     (void) ctx;
@@ -235,12 +332,6 @@ static void app_imu_task(void *ctx)
     app_imu_tick_5ms();
 }
 
-static void app_motor_task(void *ctx)
-{
-    (void) ctx;
-    app_motor_tick_50ms();
-}
-
 /**
  * @brief 周期融合 IMU 航向和编码器里程计。
  *
@@ -250,6 +341,43 @@ static void app_inav_task(void *ctx)
 {
     (void) ctx;
     app_inav_tick_50ms();
+}
+#endif
+
+#if APP_ENABLE_MOTOR_SPEED_PID
+static void app_motor_task(void *ctx)
+{
+    (void) ctx;
+    app_motor_tick_50ms();
+}
+#endif
+
+/**
+ * @brief 将应用层有符号 PID 输出映射到板级双轮 PWM/方向资源。
+ */
+static void app_motor_output_handler(app_motor_id_t id, const app_motor_output_t *output, void *ctx)
+{
+    board_motor_id_t board_id;
+    int16_t signed_duty_permille;
+
+    (void) ctx;
+    if (output == NULL) {
+        return;
+    }
+
+    signed_duty_permille = output->duty_permille;
+    switch (id) {
+    case APP_MOTOR_1:
+        board_id = BOARD_MOTOR_1;
+        break;
+    case APP_MOTOR_2:
+        board_id = BOARD_MOTOR_2;
+        break;
+    default:
+        return;
+    }
+
+    (void) board_motor_set_output(board_id, output->enable, signed_duty_permille);
 }
 
 /**
@@ -264,6 +392,13 @@ static void app_inav_task(void *ctx)
 static void app_button_status_handler(app_button_id_t id, ef_button_event_t event, void *ctx)
 {
     (void) ctx;
+
+    if ((id == APP_BUTTON_MOTOR_START) && (event == EF_BUTTON_EVENT_LONG_PRESS)) {
+        const bool enabled = !app_motor_is_global_enabled();
+
+        app_motor_set_global_enabled(enabled);
+        EF_LOGI("motor", "PB4 long press: %s", enabled ? "started" : "stopped");
+    }
 
     app_status_page_set_line(APP_STATUS_LINE_BUTTON, "%s: %s",
         app_button_name(id), ef_button_event_name(event));

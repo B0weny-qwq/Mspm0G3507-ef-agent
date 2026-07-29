@@ -13,6 +13,7 @@ extern "C" {
 typedef enum {
     /** 开发板 BOOT 按钮。 */
     BOARD_BUTTON_BOOT = 0,
+    BOARD_BUTTON_MOTOR_START,
 } board_button_id_t;
 
 /**

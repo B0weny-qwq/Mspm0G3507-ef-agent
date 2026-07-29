@@ -10,12 +10,17 @@
 
 static volatile int32_t g_encoder_counts[2];
 static int32_t g_encoder_speed_50ms[2];
+/* Forward motion is negative on encoder 1 and positive on encoder 2. */
+static const int32_t g_encoder_count_polarity[2] = {
+    [BOARD_ENCODER_1] = -1,
+    [BOARD_ENCODER_2] = 1,
+};
 
 static void board_encoder_count_step(board_encoder_id_t id, ef_gpio_id_t dir_pin)
 {
-    const int32_t delta = ef_gpio_read(dir_pin) ? -1 : 1;
+    const int32_t raw_delta = ef_gpio_read(dir_pin) ? -1 : 1;
 
-    g_encoder_counts[id] += delta;
+    g_encoder_counts[id] += raw_delta * g_encoder_count_polarity[id];
 }
 
 static void board_encoder_capture_handler(ef_capture_id_t id, void *ctx)
